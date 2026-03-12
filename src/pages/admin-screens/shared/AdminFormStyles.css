@@ -1,0 +1,277 @@
+/* Shared Admin Form Styles */
+.modern-form {
+    background: white;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+    border: none;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.form-group2 {
+    margin-bottom: 1.75rem;
+}
+
+.modern-label {
+    display: block;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: #1a2552;
+    margin-bottom: 0.5rem;
+}
+
+.modern-input {
+    width: 100%;
+    padding: 10px;
+    height: 45px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: white;
+    transition: all 0.2s ease;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modern-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Only target native select elements, not antd components */
+.modern-select:not(.ant-select) {
+    width: 100%;
+    padding: 10px;
+    height: 45px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 1rem;
+    background: white;
+    transition: all 0.2s ease;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modern-select:not(.ant-select):focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Ensure antd components maintain their default styling */
+.ant-select,
+.ant-picker {
+    z-index: auto !important;
+}
+
+.ant-select-dropdown,
+.ant-picker-dropdown {
+    z-index: 1050 !important;
+}
+
+/* Custom file input container */
+.modern-file-input-wrapper {
+    position: relative;
+    width: 100%;
+    height: 45px;
+}
+
+.modern-file-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.modern-file-input-display {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 45px;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: white;
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.modern-file-input-display:hover {
+    border-color: #9ca3af;
+}
+
+.modern-file-input:focus + .modern-file-input-display {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.modern-file-input-button {
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-right: 12px;
+    pointer-events: none;
+    transition: all 0.2s ease;
+}
+
+.modern-file-input-text {
+    color: #64748b;
+    font-size: 0.95rem;
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.modern-file-input-wrapper:hover .modern-file-input-button {
+    background: #2563eb;
+}
+
+/* File input with file selected */
+.modern-file-input-wrapper.has-file .modern-file-input-text {
+    color: #1a2552;
+    font-weight: 500;
+}
+
+.modern-submit {
+    padding: 10px 1.5rem;
+    height: 45px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modern-submit:hover:not(:disabled) {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.modern-submit:disabled {
+    background: #94a3b8;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+.modern-cancel-button {
+    padding: 10px 1.5rem;
+    height: 45px;
+    background: #f8fafc;
+    color: #64748b;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+
+.modern-cancel-button:hover {
+    background: #e2e8f0;
+    color: #475569;
+    border-color: #9ca3af;
+}
+
+/* Roles checkbox styling */
+.roles-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    background: white;
+    min-height: 45px;
+    box-sizing: border-box;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.375rem 0.75rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.checkbox-label:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #3b82f6;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkbox-text {
+    color: #1e40af;
+}
+
+.checkbox-text {
+    font-size: 0.875rem;
+    color: #64748b;
+}
+
+.modern-input::placeholder,
+.modern-select:not(.ant-select)::placeholder {
+    color: #9ca3af;
+    opacity: 1;
+}
+
+.modern-label span {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.modern-input:invalid:not(:placeholder-shown) {
+    border-color: #ef4444;
+}
+
+.modern-select:not(.ant-select):invalid:not(:placeholder-shown) {
+    border-color: #ef4444;
+}
+
+.modern-input:focus-visible,
+.modern-select:not(.ant-select):focus-visible,
+.modern-submit:focus-visible,
+.modern-cancel-button:focus-visible {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+.checkbox-label:focus-within {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+} 

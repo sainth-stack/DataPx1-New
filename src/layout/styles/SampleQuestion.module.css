@@ -1,0 +1,17 @@
+.questionBox {
+    background-color: rgb(224, 242, 248);
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    margin: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    color: black;
+    width:100%;
+    height: 100%;
+  }
+  
+  .questionBox:hover {
+    background-color: lightblue;
+  }
+  

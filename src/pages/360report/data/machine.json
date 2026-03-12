@@ -1,0 +1,144 @@
+{
+  "meta": {
+    "api_version": "1.0",
+    "generated_at": "2025-03-04T00:00:00Z",
+    "report_period": {
+      "from": "2022-01-01",
+      "to": "2025-03-04"
+    }
+  },
+
+  "reports": {
+    "fleet_manager_360": {
+      "report_id": "MACHINE-360-001",
+      "report_title": "Machine 360 — Fleet Report",
+      "fleet_name": "Nordic Fleet — Finland · Sweden · Norway",
+      "reporting_period": { "from": "2022-01-01", "to": "2025-03-04" },
+      "sections": [
+        {
+          "section_id": "f360_executive_summary",
+          "section_order": 1,
+          "type": "summary",
+          "title": "Executive Summary",
+          "description": "Fleet overview with OEE, throughput and availability metrics.",
+          "kpi_cards": [
+            { "label": "Fleet Size", "value": "18", "sub": "machines" },
+            { "label": "OEE", "value": "78%", "status": "good" },
+            { "label": "Throughput", "value": "92%", "highlight": true },
+            { "label": "Availability", "value": "94%", "status": "good" }
+          ],
+          "charts": [
+            {
+              "chart_id": "oee_trend",
+              "chart_type": "line",
+              "title": "OEE Trend",
+              "x_axis": "month",
+              "y_axis": "oee",
+              "data": [
+                { "month": "Jan", "oee": 72 },
+                { "month": "Feb", "oee": 74 },
+                { "month": "Mar", "oee": 76 },
+                { "month": "Apr", "oee": 77 },
+                { "month": "May", "oee": 78 },
+                { "month": "Jun", "oee": 79 },
+                { "month": "Jul", "oee": 77 },
+                { "month": "Aug", "oee": 79 },
+                { "month": "Sep", "oee": 80 },
+                { "month": "Oct", "oee": 78 }
+              ]
+            },
+            {
+              "chart_id": "throughput_by_series",
+              "chart_type": "bar",
+              "title": "Throughput by Series",
+              "data": [
+                { "series": "A", "throughput": 94, "color": "#10B981" },
+                { "series": "N", "throughput": 91, "color": "#3B82F6" },
+                { "series": "S", "throughput": 90, "color": "#EF4444" },
+                { "series": "T", "throughput": 92, "color": "#F59E0B" },
+                { "series": "Q", "throughput": 95, "color": "#8B5CF6" }
+              ]
+            },
+            {
+              "chart_id": "availability_pie",
+              "chart_type": "pie",
+              "title": "Availability Distribution",
+              "data": [
+                { "label": "On Track (≥95%)", "value": 10, "color": "#10B981" },
+                { "label": "Good (90–95%)", "value": 5, "color": "#3B82F6" },
+                { "label": "Monitor (<90%)", "value": 3, "color": "#F59E0B" }
+              ]
+            },
+            {
+              "chart_id": "machine_utilization",
+              "chart_type": "horizontal_bar",
+              "title": "Machine Utilization %",
+              "data": [
+                { "vin": "20240003 N174", "utilization": 91 },
+                { "vin": "20220001 A104", "utilization": 88 },
+                { "vin": "20220004 S354", "utilization": 85 },
+                { "vin": "20230002 S354", "utilization": 82 },
+                { "vin": "20230005 N154", "utilization": 79 },
+                { "vin": "20240006 A134", "utilization": 87 },
+                { "vin": "20220007 S394", "utilization": 84 },
+                { "vin": "20230008 S354", "utilization": 76 },
+                { "vin": "20240009 A114", "utilization": 90 },
+                { "vin": "20220010 T174", "utilization": 82 }
+              ]
+            },
+            {
+              "chart_id": "quality_rate",
+              "chart_type": "bar",
+              "title": "Quality Rate by Country",
+              "data": [
+                { "country": "FI", "quality": 96, "color": "#3B82F6" },
+                { "country": "SE", "quality": 94, "color": "#8B5CF6" },
+                { "country": "NO", "quality": 93, "color": "#06B6D4" }
+              ]
+            },
+            {
+              "chart_id": "downtime_hours",
+              "chart_type": "line",
+              "title": "Avg Downtime (hours/month)",
+              "x_axis": "month",
+              "y_axis": "hours",
+              "data": [
+                { "month": "Jan", "hours": 22 },
+                { "month": "Feb", "hours": 18 },
+                { "month": "Mar", "hours": 16 },
+                { "month": "Apr", "hours": 14 },
+                { "month": "May", "hours": 12 },
+                { "month": "Jun", "hours": 11 },
+                { "month": "Jul", "hours": 10 },
+                { "month": "Aug", "hours": 9 },
+                { "month": "Sep", "hours": 8 },
+                { "month": "Oct", "hours": 7 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "records": [
+    {"vin":"VALTFI20220001","model":"A104","series":"A","country":"FI","order_date":"2023-10-17","color":"Black","front_axle":"Standard","transmission":"Direct","connectivity_enabled":true,"customer_id":"C-FI-0001","first_name":"Ingrid","last_name":"Eriksson","farm_type":"Arable","farm_ha":248.9,"dealer_id":"D-FI-01","order_confirmed":"2023-10-19","total_price_eur":124024.01,"num_options":2,"assembly_end":"2023-11-24","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2023-12-20","mai_registered":true,"software_version":"v4.5.12","avg_nps":8.0,"num_surveys":1.0,"latest_nps_category":"Passive","num_services":2,"total_service_cost":1539.07,"pct_on_schedule":100.0,"last_service_date":"2024-11-20","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":11.0,"num_critical_dtc":1.0,"num_unresolved_dtc":2.0,"num_campaigns":1,"pct_campaigns_completed":100.0,"num_support_cases":2.0,"avg_resolution_days":10.0},
+    {"vin":"VALTFI20230002","model":"S354","series":"S","country":"FI","order_date":"2024-01-25","color":"Red","front_axle":"4WD TwinTrac","transmission":"Active","connectivity_enabled":true,"customer_id":"C-FI-0002","first_name":"Anders","last_name":"Mäkinen","farm_type":"Mixed","farm_ha":778.1,"dealer_id":"D-FI-01","order_confirmed":"2024-01-29","total_price_eur":137704.32,"num_options":3,"assembly_end":"2024-03-12","num_defects_found":2,"test_drive_pass":false,"audit_pass":false,"delivery_date":"2024-04-10","mai_registered":true,"software_version":"v4.5.6","avg_nps":10.0,"num_surveys":1.0,"latest_nps_category":"Promoter","num_services":1,"total_service_cost":777.67,"pct_on_schedule":100.0,"last_service_date":"2024-08-08","num_warranty_claims":1.0,"total_warranty_cost":0.0,"num_dtc_events":1.0,"num_critical_dtc":0.0,"num_unresolved_dtc":1.0,"num_campaigns":1,"pct_campaigns_completed":0.0,"num_support_cases":1.0,"avg_resolution_days":null},
+    {"vin":"VALTFI20240003","model":"N174","series":"N","country":"FI","order_date":"2022-01-31","color":"White","front_axle":"4WD TwinTrac","transmission":"HiTech","connectivity_enabled":true,"customer_id":"C-FI-0003","first_name":"Ole","last_name":"Virtanen","farm_type":"Mixed","farm_ha":676.5,"dealer_id":"D-FI-03","order_confirmed":"2022-02-02","total_price_eur":226746.55,"num_options":5,"assembly_end":"2022-02-27","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2022-03-22","mai_registered":true,"software_version":"v4.3.20","avg_nps":10.0,"num_surveys":1.0,"latest_nps_category":"Promoter","num_services":4,"total_service_cost":1985.85,"pct_on_schedule":75.0,"last_service_date":"2024-08-24","num_warranty_claims":2.0,"total_warranty_cost":3155.04,"num_dtc_events":7.0,"num_critical_dtc":5.0,"num_unresolved_dtc":0.0,"num_campaigns":2,"pct_campaigns_completed":100.0,"num_support_cases":6.0,"avg_resolution_days":9.5},
+    {"vin":"VALTNO20220004","model":"S354","series":"S","country":"NO","order_date":"2024-01-04","color":"Custom Metallic Grey","front_axle":"Standard","transmission":"Active","connectivity_enabled":true,"customer_id":"C-NO-0004","first_name":"Bjørn","last_name":"Lindqvist","farm_type":"Dairy","farm_ha":311.7,"dealer_id":"D-NO-01","order_confirmed":"2024-01-07","total_price_eur":89486.97,"num_options":5,"assembly_end":"2024-01-26","num_defects_found":2,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-02-13","mai_registered":true,"software_version":"v5.3.14","avg_nps":8.5,"num_surveys":2.0,"latest_nps_category":"Passive","num_services":1,"total_service_cost":328.07,"pct_on_schedule":100.0,"last_service_date":"2024-05-20","num_warranty_claims":1.0,"total_warranty_cost":5806.65,"num_dtc_events":6.0,"num_critical_dtc":1.0,"num_unresolved_dtc":1.0,"num_campaigns":1,"pct_campaigns_completed":100.0,"num_support_cases":1.0,"avg_resolution_days":7.0},
+    {"vin":"VALTFI20230005","model":"N154","series":"N","country":"FI","order_date":"2024-04-08","color":"Custom Metallic Grey","front_axle":"4WD Active","transmission":"Versu","connectivity_enabled":true,"customer_id":"C-FI-0005","first_name":"Ole","last_name":"Berg","farm_type":"Arable","farm_ha":487.2,"dealer_id":"D-FI-02","order_confirmed":"2024-04-13","total_price_eur":97070.07,"num_options":5,"assembly_end":"2024-06-20","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-07-20","mai_registered":true,"software_version":"v4.6.6","avg_nps":6.0,"num_surveys":1.0,"latest_nps_category":"Detractor","num_services":1,"total_service_cost":454.98,"pct_on_schedule":100.0,"last_service_date":"2024-11-17","num_warranty_claims":1.0,"total_warranty_cost":3162.04,"num_dtc_events":null,"num_critical_dtc":null,"num_unresolved_dtc":null,"num_campaigns":3,"pct_campaigns_completed":100.0,"num_support_cases":2.0,"avg_resolution_days":13.5},
+    {"vin":"VALTSE20240006","model":"A134","series":"A","country":"SE","order_date":"2022-08-09","color":"Red","front_axle":"4WD Active","transmission":"HiTech","connectivity_enabled":true,"customer_id":"C-SE-0006","first_name":"Mikko","last_name":"Virtanen","farm_type":"Mixed","farm_ha":705.4,"dealer_id":"D-SE-02","order_confirmed":"2022-08-19","total_price_eur":240724.9,"num_options":7,"assembly_end":"2022-09-13","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2022-09-28","mai_registered":false,"software_version":"v5.5.2","avg_nps":6.5,"num_surveys":2.0,"latest_nps_category":"Passive","num_services":3,"total_service_cost":2107.85,"pct_on_schedule":66.7,"last_service_date":"2024-10-02","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":5.0,"num_critical_dtc":1.0,"num_unresolved_dtc":2.0,"num_campaigns":2,"pct_campaigns_completed":100.0,"num_support_cases":2.0,"avg_resolution_days":13.5},
+    {"vin":"VALTSE20220007","model":"S394","series":"S","country":"SE","order_date":"2024-05-17","color":"Black","front_axle":"Standard","transmission":"Active","connectivity_enabled":true,"customer_id":"C-SE-0007","first_name":"Pekka","last_name":"Mäkinen","farm_type":"Dairy","farm_ha":704.8,"dealer_id":"D-SE-01","order_confirmed":"2024-05-26","total_price_eur":170327.64,"num_options":2,"assembly_end":"2024-07-26","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-08-25","mai_registered":true,"software_version":"v5.4.19","avg_nps":6.0,"num_surveys":1.0,"latest_nps_category":"Detractor","num_services":1,"total_service_cost":352.76,"pct_on_schedule":100.0,"last_service_date":"2025-01-18","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":12.0,"num_critical_dtc":3.0,"num_unresolved_dtc":4.0,"num_campaigns":3,"pct_campaigns_completed":100.0,"num_support_cases":2.0,"avg_resolution_days":8.0},
+    {"vin":"VALTFI20230008","model":"S354","series":"S","country":"FI","order_date":"2023-01-23","color":"Black","front_axle":"4WD TwinTrac","transmission":"Versu","connectivity_enabled":true,"customer_id":"C-FI-0008","first_name":"Antti","last_name":"Hansen","farm_type":"Arable","farm_ha":782.8,"dealer_id":"D-FI-03","order_confirmed":"2023-01-30","total_price_eur":163914.63,"num_options":2,"assembly_end":"2023-03-17","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2023-04-23","mai_registered":true,"software_version":"v4.9.19","avg_nps":null,"num_surveys":null,"latest_nps_category":null,"num_services":3,"total_service_cost":1935.36,"pct_on_schedule":100.0,"last_service_date":"2024-09-11","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":3.0,"num_critical_dtc":1.0,"num_unresolved_dtc":0.0,"num_campaigns":2,"pct_campaigns_completed":100.0,"num_support_cases":3.0,"avg_resolution_days":15.5},
+    {"vin":"VALTFI20240009","model":"A114","series":"A","country":"FI","order_date":"2023-12-23","color":"White","front_axle":"4WD Active","transmission":"HiTech","connectivity_enabled":true,"customer_id":"C-FI-0009","first_name":"Jari","last_name":"Korhonen","farm_type":"Forestry","farm_ha":758.5,"dealer_id":"D-FI-01","order_confirmed":"2023-12-30","total_price_eur":197606.64,"num_options":7,"assembly_end":"2024-02-25","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-03-27","mai_registered":true,"software_version":"v5.4.17","avg_nps":null,"num_surveys":null,"latest_nps_category":null,"num_services":1,"total_service_cost":1395.11,"pct_on_schedule":100.0,"last_service_date":"2024-07-23","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":4.0,"num_critical_dtc":2.0,"num_unresolved_dtc":0.0,"num_campaigns":1,"pct_campaigns_completed":100.0,"num_support_cases":null,"avg_resolution_days":null},
+    {"vin":"VALTSE20220010","model":"T174","series":"T","country":"SE","order_date":"2022-04-14","color":"Custom Metallic Grey","front_axle":"4WD TwinTrac","transmission":"Versu","connectivity_enabled":true,"customer_id":"C-SE-0010","first_name":"Lars","last_name":"Berg","farm_type":"Horticulture","farm_ha":350.0,"dealer_id":"D-SE-01","order_confirmed":"2022-04-17","total_price_eur":186155.04,"num_options":7,"assembly_end":"2022-06-16","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2022-06-28","mai_registered":true,"software_version":"v3.1.9","avg_nps":8.0,"num_surveys":1.0,"latest_nps_category":"Passive","num_services":4,"total_service_cost":2798.54,"pct_on_schedule":100.0,"last_service_date":"2025-01-24","num_warranty_claims":1.0,"total_warranty_cost":2556.94,"num_dtc_events":8.0,"num_critical_dtc":2.0,"num_unresolved_dtc":2.0,"num_campaigns":1,"pct_campaigns_completed":0.0,"num_support_cases":4.0,"avg_resolution_days":6.3},
+    {"vin":"VALTSE20230011","model":"N174","series":"N","country":"SE","order_date":"2023-01-15","color":"Black","front_axle":"4WD TwinTrac","transmission":"HiTech","connectivity_enabled":true,"customer_id":"C-SE-0011","first_name":"Ole","last_name":"Lindqvist","farm_type":"Mixed","farm_ha":331.2,"dealer_id":"D-SE-03","order_confirmed":"2023-01-17","total_price_eur":228451.33,"num_options":6,"assembly_end":"2023-03-18","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2023-04-04","mai_registered":true,"software_version":"v4.4.9","avg_nps":6.0,"num_surveys":1.0,"latest_nps_category":"Detractor","num_services":3,"total_service_cost":1975.48,"pct_on_schedule":100.0,"last_service_date":"2024-10-17","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":9.0,"num_critical_dtc":3.0,"num_unresolved_dtc":3.0,"num_campaigns":2,"pct_campaigns_completed":100.0,"num_support_cases":2.0,"avg_resolution_days":5.0},
+    {"vin":"VALTNO20240012","model":"T154","series":"T","country":"NO","order_date":"2023-07-01","color":"White","front_axle":"4WD Active","transmission":"Active","connectivity_enabled":true,"customer_id":"C-NO-0012","first_name":"Ingrid","last_name":"Eriksson","farm_type":"Forestry","farm_ha":721.7,"dealer_id":"D-NO-02","order_confirmed":"2023-07-09","total_price_eur":233852.97,"num_options":6,"assembly_end":"2023-09-11","num_defects_found":0,"test_drive_pass":true,"audit_pass":false,"delivery_date":"2023-09-26","mai_registered":true,"software_version":"v5.9.16","avg_nps":null,"num_surveys":null,"latest_nps_category":null,"num_services":1,"total_service_cost":131.82,"pct_on_schedule":100.0,"last_service_date":"2024-02-21","num_warranty_claims":1.0,"total_warranty_cost":2176.37,"num_dtc_events":6.0,"num_critical_dtc":2.0,"num_unresolved_dtc":1.0,"num_campaigns":3,"pct_campaigns_completed":100.0,"num_support_cases":null,"avg_resolution_days":null},
+    {"vin":"VALTNO20220013","model":"S354","series":"S","country":"NO","order_date":"2023-10-18","color":"White","front_axle":"4WD TwinTrac","transmission":"Versu","connectivity_enabled":true,"customer_id":"C-NO-0013","first_name":"Antti","last_name":"Lindqvist","farm_type":"Dairy","farm_ha":69.9,"dealer_id":"D-NO-01","order_confirmed":"2023-10-23","total_price_eur":160417.05,"num_options":2,"assembly_end":"2023-12-19","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-01-15","mai_registered":true,"software_version":"v3.0.17","avg_nps":6.5,"num_surveys":2.0,"latest_nps_category":"Passive","num_services":2,"total_service_cost":1239.47,"pct_on_schedule":100.0,"last_service_date":"2024-12-05","num_warranty_claims":1.0,"total_warranty_cost":6133.88,"num_dtc_events":null,"num_critical_dtc":null,"num_unresolved_dtc":null,"num_campaigns":2,"pct_campaigns_completed":100.0,"num_support_cases":null,"avg_resolution_days":null},
+    {"vin":"VALTFI20230014","model":"T214","series":"T","country":"FI","order_date":"2022-08-23","color":"Custom Metallic Grey","front_axle":"4WD Active","transmission":"HiTech","connectivity_enabled":true,"customer_id":"C-FI-0014","first_name":"Bjørn","last_name":"Berg","farm_type":"Dairy","farm_ha":479.0,"dealer_id":"D-FI-01","order_confirmed":"2022-08-27","total_price_eur":244078.61,"num_options":7,"assembly_end":"2022-09-30","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2022-10-24","mai_registered":true,"software_version":"v3.4.15","avg_nps":7.5,"num_surveys":2.0,"latest_nps_category":"Passive","num_services":4,"total_service_cost":2758.98,"pct_on_schedule":100.0,"last_service_date":"2025-02-08","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":9.0,"num_critical_dtc":2.0,"num_unresolved_dtc":2.0,"num_campaigns":3,"pct_campaigns_completed":66.7,"num_support_cases":2.0,"avg_resolution_days":11.5},
+    {"vin":"VALTNO20240015","model":"T214","series":"T","country":"NO","order_date":"2023-08-04","color":"White","front_axle":"4WD TwinTrac","transmission":"Active","connectivity_enabled":false,"customer_id":"C-NO-0015","first_name":"Antti","last_name":"Mäkinen","farm_type":"Dairy","farm_ha":72.6,"dealer_id":"D-NO-01","order_confirmed":"2023-08-11","total_price_eur":178895.09,"num_options":4,"assembly_end":"2023-09-26","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2023-10-16","mai_registered":true,"software_version":"v3.3.3","avg_nps":null,"num_surveys":null,"latest_nps_category":null,"num_services":2,"total_service_cost":1541.46,"pct_on_schedule":50.0,"last_service_date":"2024-10-21","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":null,"num_critical_dtc":null,"num_unresolved_dtc":null,"num_campaigns":1,"pct_campaigns_completed":100.0,"num_support_cases":1.0,"avg_resolution_days":null},
+    {"vin":"VALTSE20220016","model":"N134","series":"N","country":"SE","order_date":"2023-10-21","color":"Black","front_axle":"Standard","transmission":"Direct","connectivity_enabled":true,"customer_id":"C-SE-0016","first_name":"Erik","last_name":"Virtanen","farm_type":"Horticulture","farm_ha":205.6,"dealer_id":"D-SE-03","order_confirmed":"2023-10-29","total_price_eur":245828.94,"num_options":6,"assembly_end":"2023-12-12","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-01-14","mai_registered":true,"software_version":"v5.1.5","avg_nps":6.0,"num_surveys":1.0,"latest_nps_category":"Detractor","num_services":2,"total_service_cost":1160.05,"pct_on_schedule":100.0,"last_service_date":"2024-12-14","num_warranty_claims":3.0,"total_warranty_cost":6413.0,"num_dtc_events":10.0,"num_critical_dtc":5.0,"num_unresolved_dtc":0.0,"num_campaigns":1,"pct_campaigns_completed":100.0,"num_support_cases":4.0,"avg_resolution_days":5.5},
+    {"vin":"VALTNO20230017","model":"Q215","series":"Q","country":"NO","order_date":"2024-02-04","color":"Custom Metallic Grey","front_axle":"4WD Active","transmission":"Direct","connectivity_enabled":true,"customer_id":"C-NO-0017","first_name":"Anders","last_name":"Lindqvist","farm_type":"Horticulture","farm_ha":123.2,"dealer_id":"D-NO-03","order_confirmed":"2024-02-13","total_price_eur":161137.99,"num_options":2,"assembly_end":"2024-04-02","num_defects_found":1,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2024-04-15","mai_registered":false,"software_version":"v4.7.2","avg_nps":8.0,"num_surveys":1.0,"latest_nps_category":"Passive","num_services":1,"total_service_cost":720.02,"pct_on_schedule":0.0,"last_service_date":"2024-09-15","num_warranty_claims":null,"total_warranty_cost":null,"num_dtc_events":3.0,"num_critical_dtc":1.0,"num_unresolved_dtc":0.0,"num_campaigns":1,"pct_campaigns_completed":0.0,"num_support_cases":1.0,"avg_resolution_days":10.0},
+    {"vin":"VALTSE20240018","model":"A124","series":"A","country":"SE","order_date":"2023-06-06","color":"Red","front_axle":"Standard","transmission":"Direct","connectivity_enabled":true,"customer_id":"C-SE-0018","first_name":"Bjørn","last_name":"Hansen","farm_type":"Dairy","farm_ha":632.0,"dealer_id":"D-SE-02","order_confirmed":"2023-06-11","total_price_eur":191585.22,"num_options":4,"assembly_end":"2023-08-16","num_defects_found":0,"test_drive_pass":true,"audit_pass":true,"delivery_date":"2023-09-13","mai_registered":false,"software_version":"v5.9.9","avg_nps":7.0,"num_surveys":1.0,"latest_nps_category":"Passive","num_services":2,"total_service_cost":1244.86,"pct_on_schedule":100.0,"last_service_date":"2024-12-06","num_warranty_claims":3.0,"total_warranty_cost":2485.21,"num_dtc_events":6.0,"num_critical_dtc":2.0,"num_unresolved_dtc":1.0,"num_campaigns":3,"pct_campaigns_completed":66.7,"num_support_cases":3.0,"avg_resolution_days":8.7}
+  ]
+}

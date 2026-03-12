@@ -1,0 +1,100 @@
+.appLogo {
+  width: 63.83px;
+  height: 60.2px;
+}
+.logoText {
+  margin-top: 15px;
+}
+.talent{
+  font-family: Arial, Helvetica, sans-serif;
+  font-weight: 900;
+}
+.spotify {
+  font-weight: 400;
+}
+.notification-badge {
+  position: relative;
+  top: -10px;
+  left: -10px;
+  width: 20px;
+  height: 20px;
+}
+.notifications-container {
+  max-width: 300px;
+}
+.notification-item {
+  width: 290px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  
+}
+.searchg{
+  position:fixed !important;
+  top: 8%;
+}
+
+.sidebar-list-items {
+  margin: 0;
+  padding: 0;
+  margin-top: 20px;
+}
+.sidebar-list-item {
+  list-style-type: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 14px;
+}
+.sidebar-list-icon {
+  width: 15px;
+  height: 15px;
+  margin-right: 10px;
+}
+.user-dropdown {
+  width: 200px !important;
+}
+.searchInput{
+  padding-left: 25px!important;
+  border:none!important;
+  padding:10px;
+  border-radius: 100px!important;
+}
+.searchInput-icon{
+  position:relative;
+  top:7px;
+  left:15px;
+  z-index: 9;
+  background-color: transparent!important;
+}
+.search-bar{
+  width:696px!important;
+  background-color: #F5F5F6;
+  border-radius: 40px;
+}
+.profile-pic{
+  width:44px;
+  height:44px;
+  border-radius: 100px;
+}
+.settings-pic{
+  width:24px;
+  height:24px;
+}
+.notifications-pic{
+  width:24px;
+  height:31px;
+}
+.text-dark{
+  color: #000000;
+}
+.searchIcon{
+  width:24px;
+  height:24px;
+}
+.fs14{
+  font-size: 14px!important;
+}
+.bg-white-fixed{
+  z-index: 999!important;
+}
+

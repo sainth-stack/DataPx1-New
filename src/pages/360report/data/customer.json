@@ -1,0 +1,124 @@
+{
+  "meta": {
+    "api_version": "1.0",
+    "generated_at": "2025-03-04T00:00:00Z",
+    "report_period": {
+      "from": "2022-01-01",
+      "to": "2025-03-04"
+    }
+  },
+
+  "reports": {
+    "customer_360": {
+      "report_id": "CUSTOMER-360-001",
+      "report_title": "Customer 360 — Overview",
+      "reporting_period": { "from": "2022-01-01", "to": "2025-03-04" },
+      "sections": [
+        {
+          "section_id": "c360_overview",
+          "section_order": 1,
+          "type": "summary",
+          "title": "Customer Overview",
+          "description": "Aggregate view of customers, NPS, spend and service adherence across the Nordic region.",
+          "kpi_cards": [
+            { "label": "Total Customers", "value": "13", "sub": "active" },
+            { "label": "Avg NPS", "value": "7.5", "status": "good" },
+            { "label": "Total Spend", "value": "€2.67M", "highlight": true },
+            { "label": "Service Adherence", "value": "92%", "status": "good" }
+          ],
+          "charts": [
+            {
+              "chart_id": "nps_by_category",
+              "chart_type": "pie",
+              "title": "NPS by Category",
+              "data": [
+                { "label": "Promoter", "value": 3, "color": "#10B981" },
+                { "label": "Passive", "value": 7, "color": "#F59E0B" },
+                { "label": "Detractor", "value": 3, "color": "#EF4444" }
+              ]
+            },
+            {
+              "chart_id": "customers_by_country",
+              "chart_type": "bar",
+              "title": "Customers by Country",
+              "data": [
+                { "country": "FI", "count": 4, "color": "#3B82F6" },
+                { "country": "SE", "count": 5, "color": "#8B5CF6" },
+                { "country": "NO", "count": 4, "color": "#06B6D4" }
+              ]
+            },
+            {
+              "chart_id": "service_adherence_trend",
+              "chart_type": "line",
+              "title": "Service Adherence %",
+              "x_axis": "month",
+              "y_axis": "pct",
+              "data": [
+                { "month": "Jan", "pct": 88 },
+                { "month": "Feb", "pct": 90 },
+                { "month": "Mar", "pct": 91 },
+                { "month": "Apr", "pct": 92 },
+                { "month": "May", "pct": 92 },
+                { "month": "Jun", "pct": 93 },
+                { "month": "Jul", "pct": 91 },
+                { "month": "Aug", "pct": 93 }
+              ]
+            },
+            {
+              "chart_id": "spend_by_farm_type",
+              "chart_type": "horizontal_bar",
+              "title": "Spend by Farm Type",
+              "data": [
+                { "type": "Mixed", "value": 892000, "color": "#3B82F6" },
+                { "type": "Dairy", "value": 698000, "color": "#8B5CF6" },
+                { "type": "Arable", "value": 532000, "color": "#10B981" },
+                { "type": "Forestry", "value": 421000, "color": "#06B6D4" },
+                { "type": "Horticulture", "value": 162000, "color": "#F59E0B" }
+              ]
+            },
+            {
+              "chart_id": "avg_nps_by_country",
+              "chart_type": "bar",
+              "title": "Avg NPS by Country",
+              "data": [
+                { "country": "FI", "avg_nps": 7.8, "color": "#3B82F6" },
+                { "country": "SE", "avg_nps": 7.2, "color": "#8B5CF6" },
+                { "country": "NO", "avg_nps": 7.5, "color": "#10B981" }
+              ]
+            },
+            {
+              "chart_id": "spend_trend",
+              "chart_type": "line",
+              "title": "Cumulative Spend Trend (€K)",
+              "x_axis": "quarter",
+              "y_axis": "spend_k",
+              "data": [
+                { "quarter": "Q1'24", "spend_k": 520 },
+                { "quarter": "Q2'24", "spend_k": 1180 },
+                { "quarter": "Q3'24", "spend_k": 1920 },
+                { "quarter": "Q4'24", "spend_k": 2450 },
+                { "quarter": "Q1'25", "spend_k": 2670 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+
+  "records": [
+    {"customer_id":"C-FI-0001","first_name":"Ingrid","last_name":"Eriksson","farm_type":"Arable","farm_ha":248.9,"country":"FI","dealer_id":"D-FI-01","dealer":"Agritek Helsinki","num_machines":1,"total_spend_eur":124024.01,"avg_nps":8.0,"latest_nps_category":"Passive","num_services":2,"total_service_cost":1539.07,"pct_on_schedule":100.0},
+    {"customer_id":"C-FI-0002","first_name":"Anders","last_name":"Mäkinen","farm_type":"Mixed","farm_ha":778.1,"country":"FI","dealer_id":"D-FI-01","dealer":"Agritek Helsinki","num_machines":1,"total_spend_eur":137704.32,"avg_nps":10.0,"latest_nps_category":"Promoter","num_services":1,"total_service_cost":777.67,"pct_on_schedule":100.0},
+    {"customer_id":"C-FI-0003","first_name":"Ole","last_name":"Virtanen","farm_type":"Mixed","farm_ha":676.5,"country":"FI","dealer_id":"D-FI-03","dealer":"Agritek Tampere","num_machines":1,"total_spend_eur":226746.55,"avg_nps":10.0,"latest_nps_category":"Promoter","num_services":4,"total_service_cost":1985.85,"pct_on_schedule":75.0},
+    {"customer_id":"C-NO-0004","first_name":"Bjørn","last_name":"Lindqvist","farm_type":"Dairy","farm_ha":311.7,"country":"NO","dealer_id":"D-NO-01","dealer":"AgriNord Oslo","num_machines":1,"total_spend_eur":89486.97,"avg_nps":8.5,"latest_nps_category":"Passive","num_services":1,"total_service_cost":328.07,"pct_on_schedule":100.0},
+    {"customer_id":"C-SE-0006","first_name":"Mikko","last_name":"Virtanen","farm_type":"Mixed","farm_ha":705.4,"country":"SE","dealer_id":"D-SE-02","dealer":"AgriSverige Malmö","num_machines":1,"total_spend_eur":240724.9,"avg_nps":6.5,"latest_nps_category":"Passive","num_services":3,"total_service_cost":2107.85,"pct_on_schedule":66.7},
+    {"customer_id":"C-SE-0007","first_name":"Pekka","last_name":"Mäkinen","farm_type":"Dairy","farm_ha":704.8,"country":"SE","dealer_id":"D-SE-01","dealer":"AgriSverige Stockholm","num_machines":1,"total_spend_eur":170327.64,"avg_nps":6.0,"latest_nps_category":"Detractor","num_services":1,"total_service_cost":352.76,"pct_on_schedule":100.0},
+    {"customer_id":"C-FI-0008","first_name":"Antti","last_name":"Hansen","farm_type":"Arable","farm_ha":782.8,"country":"FI","dealer_id":"D-FI-03","dealer":"Agritek Tampere","num_machines":1,"total_spend_eur":163914.63,"avg_nps":null,"latest_nps_category":null,"num_services":3,"total_service_cost":1935.36,"pct_on_schedule":100.0},
+    {"customer_id":"C-SE-0010","first_name":"Lars","last_name":"Berg","farm_type":"Horticulture","farm_ha":350.0,"country":"SE","dealer_id":"D-SE-01","dealer":"AgriSverige Stockholm","num_machines":1,"total_spend_eur":186155.04,"avg_nps":8.0,"latest_nps_category":"Passive","num_services":4,"total_service_cost":2798.54,"pct_on_schedule":100.0},
+    {"customer_id":"C-SE-0011","first_name":"Ole","last_name":"Lindqvist","farm_type":"Mixed","farm_ha":331.2,"country":"SE","dealer_id":"D-SE-03","dealer":"AgriSverige Göteborg","num_machines":1,"total_spend_eur":228451.33,"avg_nps":6.0,"latest_nps_category":"Detractor","num_services":3,"total_service_cost":1975.48,"pct_on_schedule":100.0},
+    {"customer_id":"C-NO-0012","first_name":"Ingrid","last_name":"Eriksson","farm_type":"Forestry","farm_ha":721.7,"country":"NO","dealer_id":"D-NO-02","dealer":"AgriNord Bergen","num_machines":1,"total_spend_eur":233852.97,"avg_nps":null,"latest_nps_category":null,"num_services":1,"total_service_cost":131.82,"pct_on_schedule":100.0},
+    {"customer_id":"C-FI-0014","first_name":"Bjørn","last_name":"Berg","farm_type":"Dairy","farm_ha":479.0,"country":"FI","dealer_id":"D-FI-01","dealer":"Agritek Helsinki","num_machines":1,"total_spend_eur":244078.61,"avg_nps":7.5,"latest_nps_category":"Passive","num_services":4,"total_service_cost":2758.98,"pct_on_schedule":100.0},
+    {"customer_id":"C-SE-0016","first_name":"Erik","last_name":"Virtanen","farm_type":"Horticulture","farm_ha":205.6,"country":"SE","dealer_id":"D-SE-03","dealer":"AgriSverige Göteborg","num_machines":1,"total_spend_eur":245828.94,"avg_nps":6.0,"latest_nps_category":"Detractor","num_services":2,"total_service_cost":1160.05,"pct_on_schedule":100.0},
+    {"customer_id":"C-SE-0018","first_name":"Bjørn","last_name":"Hansen","farm_type":"Dairy","farm_ha":632.0,"country":"SE","dealer_id":"D-SE-02","dealer":"AgriSverige Malmö","num_machines":1,"total_spend_eur":191585.22,"avg_nps":7.0,"latest_nps_category":"Passive","num_services":2,"total_service_cost":1244.86,"pct_on_schedule":100.0}
+  ]
+}

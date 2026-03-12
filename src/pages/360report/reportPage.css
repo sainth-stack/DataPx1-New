@@ -1,0 +1,452 @@
+/* 360 Report – single page, SaaS-style */
+.report-360-wrap {
+  background-color: #f1f5f9;
+  min-height: 100%;
+  padding: 24px 28px;
+  color: #1e293b;
+}
+
+.report-360-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.report-360-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
+}
+
+.report-360-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  background-color: #2563eb;
+  color: white;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition: background-color 0.2s, box-shadow 0.2s;
+}
+
+.report-360-download:hover:not(:disabled) {
+  background-color: #1d4ed8;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+}
+
+.report-360-download:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* KPI row – 4 cards, SaaS card style */
+.report-360-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 900px) {
+  .report-360-kpis {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.report-360-kpi-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 22px 24px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s;
+}
+
+.report-360-kpi-card .report-kpi-value[data-status="good"] { color: #059669; }
+.report-360-kpi-card .report-kpi-value[data-status="warning"] { color: #d97706; }
+.report-360-kpi-card .report-kpi-value[data-status="critical"] { color: #dc2626; }
+.report-360-kpi-card .report-kpi-value[data-highlight="true"] { color: #2563eb; }
+
+.report-360-kpi-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.report-360-kpi-card .report-kpi-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 6px;
+}
+
+.report-360-kpi-card .report-kpi-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.report-360-kpi-card .report-kpi-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* Machine Overview – after KPIs, section 2 style */
+.report-360-overview {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.report-360-overview-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e3a5f;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px 0;
+}
+
+.report-360-overview-number {
+  margin-right: 4px;
+}
+
+.report-360-overview-subtitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+}
+
+.report-360-overview-desc {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #1e293b;
+  margin: 0;
+}
+
+/* IPR Insights – after Machine Overview */
+.report-360-ipr {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px 28px;
+  margin-bottom: 28px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.report-360-ipr-heading {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e3a5f;
+  letter-spacing: 0.04em;
+  margin: 0 0 4px 0;
+}
+
+.report-360-ipr-subtitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 20px 0;
+}
+
+.report-360-ipr-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.report-360-ipr-chart-block {
+  padding-bottom: 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.report-360-ipr-chart-block:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.report-360-ipr-chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 12px 0;
+}
+
+.report-360-ipr-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.report-360-ipr-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.report-360-ipr-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+}
+
+.report-360-ipr-label-issues {
+  color: #b45309;
+}
+
+.report-360-ipr-label-rec {
+  color: #059669;
+}
+
+.report-360-ipr-ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #1e293b;
+}
+
+.report-360-ipr-ul li {
+  margin-bottom: 4px;
+}
+
+/* IPR modal – popup when info button clicked */
+.report-360-ipr-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(4px);
+  animation: report-360-ipr-fadeIn 0.2s ease-out;
+}
+
+@keyframes report-360-ipr-fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.report-360-ipr-modal {
+  width: 100%;
+  max-width: 480px;
+  max-height: 85vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  animation: report-360-ipr-slideUp 0.25s ease-out;
+}
+
+@keyframes report-360-ipr-slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.report-360-ipr-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.report-360-ipr-modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.report-360-ipr-modal-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: #64748b;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.report-360-ipr-modal-close:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.report-360-ipr-modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.report-360-ipr-popup-chart-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 16px 0;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.report-360-ipr-modal-body .report-360-ipr-rows {
+  gap: 14px;
+}
+
+.report-360-ipr-modal-body .report-360-ipr-row {
+  gap: 6px;
+}
+
+/* 6 charts grid – 2 cols x 3 rows, SaaS card style */
+.report-360-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+.report-360-chart-cell {
+  position: relative;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  min-height: 320px;
+}
+
+.report-360-chart-ipr-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.report-360-chart-ipr-btn:hover {
+  background: #2563eb;
+  color: #fff;
+}
+
+.report-360-chart-cell .recharts-cartesian-grid-horizontal line,
+.report-360-chart-cell .recharts-cartesian-grid-vertical line {
+  stroke: #e2e8f0;
+}
+
+.report-360-chart-cell .recharts-default-tooltip {
+  padding: 12px 16px !important;
+  font-size: 13px !important;
+}
+
+.report-360-chart-cell .report-chart-card {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+.report-360-chart-cell .report-chart-card > div:first-of-type {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #475569 !important;
+  margin-bottom: 16px !important;
+  letter-spacing: 0 !important;
+}
+
+/* Recharts axis/tooltip in light theme */
+.report-360-chart-cell .recharts-cartesian-axis-tick-value,
+.report-360-chart-cell .recharts-legend-item-text {
+  fill: #475569 !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+.report-360-chart-cell .recharts-label-list text {
+  fill: #334155 !important;
+  font-weight: 600 !important;
+}
+
+.report-360-content .report-kpi-card {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+}
+
+.report-360-content .report-kpi-card > div:first-of-type {
+  color: #64748b !important;
+}
+
+.report-360-content .report-kpi-card > div:nth-of-type(2) {
+  color: #1e293b !important;
+}
+
+.report-360-content .report-chart-card {
+  background: #ffffff !important;
+  border-color: #e2e8f0 !important;
+}
+
+.report-360-content .report-chart-card > div:first-of-type {
+  color: #475569 !important;
+}
+
+.report-360-content .report-risk-box {
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+.report-360-content table th {
+  color: #64748b !important;
+}
+
+.report-360-content table td {
+  color: #334155 !important;
+}
+
+.report-360-content .report-desc {
+  color: #64748b !important;
+}

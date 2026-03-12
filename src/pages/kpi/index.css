@@ -1,0 +1,305 @@
+:root {
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --secondary-color: #1890ff;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --background-light: #f0f7ff;
+  --border-color: #e5e7eb;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+}
+
+.kpi-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.kpi-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.kpi-form {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.input-label {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.input-field {
+    margin-left: 0.5rem;
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    width: 100%;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+}
+
+.input-field:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(24, 144, 255, 0.1);
+}
+
+.submit-button {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.submit-button:hover {
+    background-color: var(--primary-hover);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.submit-button:active {
+    transform: translateY(0);
+}
+
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1.25rem;
+    margin: 2rem 0;
+    padding: 0.5rem;
+}
+
+.kpi-card {
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+    border: 1px solid var(--border-color);
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 200px;
+}
+
+.kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: rgba(0, 0, 0, 0.15) 0px 8px 24px;
+}
+
+.kpi-card.selected {
+    background-color: var(--background-light);
+    border: 2px solid var(--secondary-color);
+    box-shadow: 0 0 0 4px rgba(24, 144, 255, 0.1);
+}
+
+.kpi-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.kpi-icon {
+    min-width: 2.5rem;
+    height: 2.5rem;
+    background-color: var(--background-light);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.kpi-card:hover .kpi-icon {
+    background-color: var(--primary-color);
+}
+
+.kpi-icon i {
+    color: var(--primary-color);
+    font-size: 1.1rem;
+    transition: all 0.2s ease;
+}
+
+.kpi-card:hover .kpi-icon i {
+    color: white;
+}
+
+.kpi-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    line-height: 1.4;
+}
+
+.kpi-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.kpi-detail-row {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 0.5rem;
+    align-items: baseline;
+    padding: 0.25rem 0;
+}
+
+.detail-label {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.detail-value {
+    color: var(--text-primary);
+    line-height: 1.5;
+    font-size: 0.95rem;
+    word-break: break-word;
+}
+
+/* Plot and Code Block Styles */
+.ant-collapse {
+    margin-top: 2rem;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.ant-collapse-panel {
+    border: none !important;
+}
+
+.plot-container {
+    background-color: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+    box-shadow: var(--shadow-sm);
+}
+
+.code-block-container {
+    position: relative;
+    margin-top: 1rem;
+}
+
+.code-block {
+    background-color: #1e1e1e;
+    border-radius: 8px;
+    padding: 1.5rem;
+    padding-top: 3rem;
+    overflow-x: auto;
+    font-family: 'Consolas', 'Monaco', monospace;
+    line-height: 1.6;
+    color: #d4d4d4;
+    position: relative;
+    white-space: pre-wrap;
+}
+
+/* Add syntax highlighting colors */
+.code-block b {
+    color: #569cd6;  /* blue for keywords */
+    font-weight: normal;
+}
+
+.code-block .comment {
+    color: #6a9955;  /* green for comments */
+}
+
+.code-block .string {
+    color: #ce9178;  /* orange for strings */
+}
+
+.code-block .number {
+    color: #b5cea8;  /* light green for numbers */
+}
+
+.code-block hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 1rem 0;
+}
+
+/* Improve code block header appearance */
+.code-block::before {
+    content: 'Python';
+    position: absolute;
+    top: 0.8rem;
+    left: 3rem;
+    color: #888;
+    font-size: 0.8rem;
+}
+
+.copy-button {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background-color: transparent;
+    border: 1px solid #666;
+    border-radius: 4px;
+    color: #d4d4d4;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+}
+
+.copy-button:hover {
+    background-color: #333;
+    border-color: #888;
+}
+
+/* Loading Spinner */
+.loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .kpi-container {
+        padding: 1rem;
+    }
+
+    .kpi-title {
+        font-size: 2rem;
+    }
+
+    .form-group {
+        flex-direction: column;
+    }
+
+    .input-label {
+        width: 100%;
+    }
+
+    .submit-button {
+        width: 100%;
+    }
+}

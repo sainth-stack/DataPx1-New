@@ -1,0 +1,18 @@
+.text-green{
+    color: green;
+}
+.bg-biscuit{
+    background-color: #FFFEE1;
+}
+.relative{
+    position: relative;
+}
+.eye3{
+    position: absolute;
+    top: -27px;
+    right:15px;
+    cursor: pointer;
+}
+input:focus {
+    outline: none !important;
+}

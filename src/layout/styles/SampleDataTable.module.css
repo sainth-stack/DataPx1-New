@@ -1,0 +1,38 @@
+.container {
+    /* padding: 20px;
+    margin-top: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); */
+  }
+  
+  .heading {
+    font-size: 24px;
+    margin-bottom: 10px;
+    color: #333;
+  }
+  
+  .table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  
+  .headerCell {
+    background-color: #f2f2f2;
+    font-weight: bold;
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  
+  .row:nth-child(even) {
+    background-color: #f9f9f9;
+  }
+  
+  .cell {
+    padding: 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+  }
+  

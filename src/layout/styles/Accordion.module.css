@@ -1,0 +1,32 @@
+.accordion {
+    margin-bottom: 20px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background-color: #f7f7f7;
+    cursor: pointer;
+  }
+  
+  .title {
+    margin: 0;
+    font-size: 18px;
+    color: #333;
+  }
+  
+  .icon {
+    font-size: 18px;
+    color: #333;
+  }
+  
+  .content {
+    padding: 15px;
+    background-color: #fff;
+  }
+  

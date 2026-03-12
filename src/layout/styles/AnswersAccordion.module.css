@@ -1,0 +1,134 @@
+.accordionItem {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .accordionItem:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  }
+  
+  .accordionHeader {
+    background-color: #ffffff;
+    padding: 16px 20px;
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 600;
+    color: #2c3e50;
+    border-radius: 8px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .accordionHeader:hover {
+    background-color: #f8fafc;
+  }
+  
+  .accordionContent {
+    padding: 20px;
+    background-color: #ffffff;
+    border-top: 1px solid #f0f0f0;
+  }
+  
+
+  .chatContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background-color: #ffffff;
+  border: 1px solid #edf2f7;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.chatMessage {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  line-height: 1.6;
+  transition: transform 0.2s ease;
+}
+
+.chatMessage:hover {
+  transform: scale(1.01);
+}
+
+.question {
+  background-color: #f8fafc;
+  color: #2563eb;
+  font-weight: 600;
+  border-left: 4px solid #2563eb;
+}
+
+.answer {
+  background-color: #ffffff;
+  color: #334155;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  border-left: 4px solid #64748b;
+}
+
+.loadingContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
+}
+
+.imageContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  background-color: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.image {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid #edf2f7;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  transition: transform 0.3s ease;
+}
+
+.image:hover {
+  transform: scale(1.02);
+}
+
+.saveButton {
+  margin-top: 16px;
+  padding: 8px 24px;
+  font-weight: 600;
+  border-radius: 24px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.saveButton:hover {
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.2);
+}
+
+.savedText {
+  margin-top: 12px;
+  color: #059669;
+  font-weight: 600;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}

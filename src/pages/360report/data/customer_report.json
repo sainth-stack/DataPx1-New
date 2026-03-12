@@ -1,0 +1,195 @@
+{
+  "meta": {
+    "api_version": "1.0",
+    "generated_at": "2025-03-04T10:00:00Z",
+    "report_period": {
+      "from": "2022-01-01",
+      "to": "2025-03-04"
+    }
+  },
+
+  "reports": {
+    "customer_360": {
+      "report_id": "VALTFI20220001",
+      "report_title": "Customer 360 — Machine Journey Report",
+      "customer": {
+        "name": "Ingrid Eriksson",
+        "farm_type": "Arable",
+        "farm_size_ha": 248.9,
+        "country": "Finland",
+        "dealer": "Agritek Helsinki"
+      },
+      "reporting_period": { "from": "2022-01-01", "to": "2025-03-04" },
+      "sections": [
+        {
+          "section_id": "c360_overview",
+          "section_order": 1,
+          "type": "summary",
+          "title": "Overview",
+          "description": "Machine and delivery overview for this customer.",
+          "kpi_cards": [
+            { "label": "Machine Model", "value": "A104 A-series", "icon": "machine" },
+            { "label": "Total Price", "value": "€124,024", "highlight": true, "icon": "euro" },
+            { "label": "Delivery Time", "value": "64 days", "icon": "calendar" },
+            { "label": "Health Score", "value": "8.8/10", "status": "good", "icon": "health" }
+          ],
+          "charts": [
+            {
+              "chart_id": "delivery_timeline",
+              "chart_type": "gantt_bar",
+              "title": "Order-to-Delivery Timeline",
+              "data": [
+                { "stage": "Order Confirmed", "start": 0, "duration": 2, "color": "#2563eb" },
+                { "stage": "Assembly", "start": 2, "duration": 36, "color": "#7c3aed" },
+                { "stage": "PDI & Delivery", "start": 38, "duration": 26, "color": "#059669" }
+              ]
+            }
+          ],
+          "table": {
+            "type": "key_value",
+            "title": "Specifications",
+            "rows": [
+              { "label": "Model / Series", "value": "A104 (A-series)" },
+              { "label": "Colour", "value": "Black" },
+              { "label": "Transmission", "value": "Direct" },
+              { "label": "Front Axle", "value": "Standard" },
+              { "label": "Sales Channel", "value": "Dealer" },
+              { "label": "Software Version", "value": "v4.5.12" },
+              { "label": "Telematics", "value": "Connected ✓" },
+              { "label": "MAI Registered", "value": "Yes ✓" },
+              { "label": "Configured Options", "value": "ISOBUS Terminal | Auto Steer" },
+              { "label": "Total Price", "value": "€124,024.01" }
+            ]
+          }
+        },
+
+        {
+          "section_id": "c360_nps",
+          "section_order": 2,
+          "type": "mixed",
+          "title": "NPS & Feedback",
+          "description": "Net Promoter Score and satisfaction feedback.",
+          "kpi_cards": [
+            { "label": "NPS Score", "value": "8/10", "status": "passive" },
+            { "label": "Category", "value": "Passive" },
+            { "label": "Machine Score", "value": "9/10", "status": "good" },
+            { "label": "Dealer Score", "value": "7/10", "status": "warning" }
+          ],
+          "charts": [
+            {
+              "chart_id": "nps_over_time",
+              "chart_type": "line",
+              "title": "NPS Score Over Time",
+              "x_axis": "date",
+              "y_axis": "score",
+              "data": [
+                { "date": "Jan 24", "score": 8, "color": "#2563eb" }
+              ]
+            },
+            {
+              "chart_id": "dealer_vs_machine",
+              "chart_type": "grouped_bar",
+              "title": "Dealer vs Machine Satisfaction",
+              "series": ["Dealer", "Machine"],
+              "data": [
+                { "survey": "Survey 1", "Dealer": 7, "Machine": 9, "color": "#059669" }
+              ]
+            }
+          ]
+        },
+
+        {
+          "section_id": "c360_dtc",
+          "section_order": 3,
+          "type": "mixed",
+          "title": "Machine Health",
+          "description": "DTC events and open faults for this machine.",
+          "kpi_cards": [
+            { "label": "Total DTC Events", "value": "11" },
+            { "label": "Critical Faults", "value": "1", "status": "critical", "badge_color": "#dc2626" },
+            { "label": "Unresolved", "value": "2", "status": "warning" }
+          ],
+          "charts": [
+            {
+              "chart_id": "dtc_by_system",
+              "chart_type": "bar",
+              "title": "DTC Events by System",
+              "data": [
+                { "system": "Network", "count": 2, "color": "#2563eb" },
+                { "system": "Chassis", "count": 3, "color": "#7c3aed" },
+                { "system": "Powertrain", "count": 6, "color": "#dc2626" }
+              ]
+            }
+          ],
+          "table": {
+            "type": "data_table",
+            "title": "Open Fault Codes",
+            "headers": ["Date", "Code", "Description", "Severity", "System"],
+            "rows": [
+              { "date": "2024-03-11", "code": "P0299", "description": "Turbocharger underboost", "severity": "Critical", "system": "Powertrain" },
+              { "date": "2024-06-15", "code": "P0087", "description": "Fuel rail pressure too low", "severity": "Warning", "system": "Powertrain" }
+            ]
+          }
+        },
+
+        {
+          "section_id": "c360_service",
+          "section_order": 4,
+          "type": "mixed",
+          "title": "Service History",
+          "description": "Service events, costs and schedule adherence.",
+          "kpi_cards": [
+            { "label": "Service Events", "value": "2" },
+            { "label": "Total Cost", "value": "€2,336.13", "highlight": true },
+            { "label": "Adherence", "value": "100%", "status": "good" }
+          ],
+          "charts": [
+            {
+              "chart_id": "service_costs",
+              "chart_type": "bar_with_line",
+              "title": "Service Costs & Cumulative",
+              "data": [
+                { "event": "Apr 24", "cost": 1321.12, "cumulative": 1321.12, "color": "#2563eb" },
+                { "event": "Nov 24", "cost": 1015.01, "cumulative": 2336.13, "color": "#059669" }
+              ]
+            },
+            {
+              "chart_id": "schedule_pie",
+              "chart_type": "pie",
+              "title": "Services On Schedule",
+              "data": [
+                { "label": "On Schedule", "value": 100, "color": "#059669" },
+                { "label": "Late", "value": 0, "color": "#dc2626" }
+              ]
+            }
+          ]
+        },
+
+        {
+          "section_id": "c360_scorecard",
+          "section_order": 5,
+          "type": "summary",
+          "title": "Health Scorecard",
+          "description": "Overall health score and recommended actions.",
+          "kpi_cards": [
+            { "label": "Overall Score", "value": "8.8/10", "status": "good" },
+            { "label": "Status", "value": "Healthy" }
+          ],
+          "overall_score": 8.8,
+          "overall_status": "Healthy",
+          "table": {
+            "type": "key_value",
+            "title": "Dimensions",
+            "rows": [
+              { "label": "NPS", "value": "8 — Passive, room to improve" },
+              { "label": "Machine Health", "value": "6 — 1 critical fault, action required" },
+              { "label": "Service", "value": "10 — All services on schedule" },
+              { "label": "Warranty", "value": "10 — No claims raised" },
+              { "label": "Campaigns", "value": "10 — All campaigns complete" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}
