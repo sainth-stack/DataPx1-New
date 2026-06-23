@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Database,
   Plug,
@@ -682,56 +682,59 @@ export default function DataIngestion() {
               </div>
             </div>
 
-            <div className="mt-3 overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="w-12 pl-3">
+            <div className="mt-3">
+              <DataTable
+                columns={[
+                  {
+                    key: "_sel",
+                    header: (
                       <Checkbox
                         checked={allSourcesSelected ? true : someSourcesSelected ? "indeterminate" : false}
-                        onCheckedChange={(v) => {
-                          if (v === true) selectAllSources();
-                          else clearSourceSelection();
-                        }}
+                        onCheckedChange={(v) => { if (v === true) selectAllSources(); else clearSourceSelection(); }}
                         aria-label="Select all data sources"
                       />
-                    </TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Sync status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {connectedConnectors.map((c) => {
-                    const isSelected = selectedSourceIds.includes(c.id);
-                    return (
-                      <TableRow key={c.id} className={isSelected ? "bg-muted/40" : undefined}>
-                        <TableCell className="pl-3">
-                          <Checkbox checked={isSelected} onCheckedChange={() => toggleSourceSelected(c.id)} />
-                        </TableCell>
-                        <TableCell className="font-medium">
-                          <div className="flex items-center gap-2">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-[10px] font-bold">{c.icon}</span>
-                            <span className="text-sm">{c.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className={`text-[10px] ${categoryColor[c.category]}`}>{c.category}</Badge>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          <span className="text-success font-medium">●</span> {c.records ?? "—"} · {c.lastSync ?? "—"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDisconnect(c)}>
-                            Remove
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                    ),
+                    width: 48,
+                    render: (_v, c) => (
+                      <Checkbox
+                        checked={selectedSourceIds.includes((c as Connector).id)}
+                        onCheckedChange={() => toggleSourceSelected((c as Connector).id)}
+                      />
+                    ),
+                  },
+                  {
+                    key: "name",
+                    header: "Source",
+                    render: (v, c) => (
+                      <div className="flex items-center gap-2 font-medium">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-muted text-[10px] font-bold">{(c as Connector).icon}</span>
+                        <span className="text-sm">{String(v)}</span>
+                      </div>
+                    ),
+                  },
+                  { key: "category", header: "Category", render: (v) => <Badge variant="outline" className={`text-[10px] ${categoryColor[v as string]}`}>{String(v)}</Badge> },
+                  {
+                    key: "_sync",
+                    header: "Sync status",
+                    render: (_v, c) => (
+                      <span className="text-xs text-muted-foreground">
+                        <span className="text-success font-medium">●</span> {(c as Connector).records ?? "—"} · {(c as Connector).lastSync ?? "—"}
+                      </span>
+                    ),
+                  },
+                  {
+                    key: "_actions",
+                    header: "",
+                    align: "right",
+                    render: (_v, c) => (
+                      <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive" onClick={() => handleDisconnect(c as Connector)}>Remove</Button>
+                    ),
+                  },
+                ] as ColumnDef[]}
+                rows={connectedConnectors}
+                getRowKey={(c) => (c as Connector).id}
+                rowClassName={(_v, i) => selectedSourceIds.includes((connectedConnectors[i] as Connector)?.id) ? "bg-muted/40" : undefined}
+              />
             </div>
           </>
         )}
@@ -825,73 +828,54 @@ export default function DataIngestion() {
               </div>
             </div>
 
-            <div className="mt-3 overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Rows</TableHead>
-                    <TableHead>Columns</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredSelected.map((d) => (
-                    <TableRow key={d.dataset_id}>
-                      <TableCell className="font-medium">
-                        <div className="flex flex-col gap-0.5">
-                          <div className="flex items-center gap-2">
-                            {d.is_synthetic ? (
-                              <Database className="h-4 w-4 text-teal shrink-0" />
-                            ) : (
-                              <FileSpreadsheet className="h-4 w-4 text-success shrink-0" />
-                            )}
-                            <span className="text-sm">{d.display_name}</span>
-                          </div>
-                          {d.description ? (
-                            <span className="text-[11px] text-muted-foreground pl-6 line-clamp-1">{d.description}</span>
-                          ) : null}
+            <div className="mt-3">
+              <DataTable
+                columns={[
+                  {
+                    key: "display_name",
+                    header: "Name",
+                    render: (v, d) => (
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2 font-medium">
+                          {(d as DatasetRecord).is_synthetic
+                            ? <Database className="h-4 w-4 text-teal shrink-0" />
+                            : <FileSpreadsheet className="h-4 w-4 text-success shrink-0" />}
+                          <span className="text-sm">{String(v)}</span>
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={`text-[10px] ${
-                            d.is_synthetic
-                              ? "bg-teal/10 text-teal border-teal/20"
-                              : "bg-success/10 text-success border-success/20"
-                          }`}
-                        >
-                          {d.source ?? "upload"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs tabular-nums">{(d.total_rows ?? 0).toLocaleString()}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{d.column_count ?? "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{formatDate(d.created_at)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex gap-1 justify-end">
-                          <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => void handlePreview(d)}>
-                            <Eye className="h-3.5 w-3.5" />
-                            Preview
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 gap-1 text-xs text-destructive hover:text-destructive"
-                            onClick={() => void removeFromSelection(d.dataset_id)}
-                            disabled={savingSelection}
-                          >
-                            <X className="h-3.5 w-3.5" />
-                            Remove
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                        {(d as DatasetRecord).description
+                          ? <span className="text-[11px] text-muted-foreground pl-6 line-clamp-1">{(d as DatasetRecord).description}</span>
+                          : null}
+                      </div>
+                    ),
+                  },
+                  {
+                    key: "source",
+                    header: "Source",
+                    render: (v, d) => (
+                      <Badge variant="outline" className={`text-[10px] ${(d as DatasetRecord).is_synthetic ? "bg-teal/10 text-teal border-teal/20" : "bg-success/10 text-success border-success/20"}`}>
+                        {String(v ?? "upload")}
+                      </Badge>
+                    ),
+                  },
+                  { key: "total_rows", header: "Rows", render: (v) => <span className="text-xs tabular-nums">{((v as number) ?? 0).toLocaleString()}</span> },
+                  { key: "column_count", header: "Columns", render: (v) => <span className="text-xs text-muted-foreground">{String(v ?? "—")}</span> },
+                  { key: "created_at", header: "Created", render: (v) => <span className="text-muted-foreground text-xs">{formatDate(String(v))}</span> },
+                  {
+                    key: "_actions",
+                    header: "",
+                    align: "right",
+                    render: (_v, d) => (
+                      <div className="flex gap-1 justify-end">
+                        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs" onClick={() => void handlePreview(d as DatasetRecord)}><Eye className="h-3.5 w-3.5" /> Preview</Button>
+                        <Button size="sm" variant="ghost" className="h-8 gap-1 text-xs text-destructive hover:text-destructive" onClick={() => void removeFromSelection((d as DatasetRecord).dataset_id)} disabled={savingSelection}><X className="h-3.5 w-3.5" /> Remove</Button>
+                      </div>
+                    ),
+                  },
+                ] as ColumnDef[]}
+                rows={filteredSelected}
+                getRowKey={(d) => (d as DatasetRecord).dataset_id}
+                emptyMessage="No selected datasets match your search."
+              />
             </div>
             {filteredSelected.length === 0 && selectedDatasets.length > 0 && (
               <p className="text-xs text-muted-foreground text-center py-4">No selected datasets match your search.</p>
@@ -1061,83 +1045,63 @@ export default function DataIngestion() {
                 ) : filteredAllDatasets.length === 0 ? (
                   <Card className="rounded-card p-8 text-center text-sm text-muted-foreground">No datasets match your search.</Card>
                 ) : (
-                  <div className="overflow-x-auto rounded-lg border max-h-[min(50vh,420px)] overflow-y-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30 sticky top-0 z-10">
-                          <TableHead className="w-12 pl-3">
-                            <Checkbox
-                              checked={
-                                filteredAllDatasets.length > 0 &&
-                                filteredAllDatasets.every((d) => dialogDraftIds.includes(d.dataset_id))
-                                  ? true
-                                  : filteredAllDatasets.some((d) => dialogDraftIds.includes(d.dataset_id))
-                                    ? "indeterminate"
-                                    : false
-                              }
-                              onCheckedChange={(v) => {
-                                if (v === true) {
-                                  const visible = filteredAllDatasets.map((d) => d.dataset_id);
-                                  setDialogDraftIds((prev) => [...new Set([...prev, ...visible])]);
-                                } else {
-                                  const visible = new Set(filteredAllDatasets.map((d) => d.dataset_id));
-                                  setDialogDraftIds((prev) => prev.filter((id) => !visible.has(id)));
-                                }
-                              }}
-                              aria-label="Select all visible datasets"
-                            />
-                          </TableHead>
-                          <TableHead>Name</TableHead>
-                          <TableHead>Source</TableHead>
-                          <TableHead className="text-right">Rows</TableHead>
-                          <TableHead className="w-12 text-right pr-3" />
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredAllDatasets.map((d) => {
-                          const isSelected = dialogDraftIds.includes(d.dataset_id);
-                          return (
-                            <TableRow
-                              key={d.dataset_id}
-                              className={`cursor-pointer ${isSelected ? "bg-muted/40" : ""}`}
-                              onClick={() => toggleDraftDataset(d.dataset_id)}
-                            >
-                              <TableCell className="pl-3" onClick={(e) => e.stopPropagation()}>
-                                <Checkbox checked={isSelected} onCheckedChange={() => toggleDraftDataset(d.dataset_id)} />
-                              </TableCell>
-                              <TableCell className="font-medium text-sm">
-                                <span>{d.display_name}</span>
-                                {d.description ? (
-                                  <p className="text-[11px] text-muted-foreground font-normal line-clamp-1 mt-0.5">{d.description}</p>
-                                ) : null}
-                              </TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="text-[10px] capitalize">{d.source ?? "upload"}</Badge>
-                              </TableCell>
-                              <TableCell className="text-right text-xs tabular-nums">{(d.total_rows ?? 0).toLocaleString()}</TableCell>
-                              <TableCell className="pr-3 text-right" onClick={(e) => e.stopPropagation()}>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                  aria-label={`Delete ${d.display_name}`}
-                                  disabled={deletingId === d.dataset_id}
-                                  onClick={() => setDeleteTarget(d)}
-                                >
-                                  {deletingId === d.dataset_id ? (
-                                    <Loader2 className="h-4 w-4 animate-spin" />
-                                  ) : (
-                                    <Trash2 className="h-4 w-4" />
-                                  )}
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <DataTable
+                    columns={[
+                      {
+                        key: "_sel",
+                        header: (
+                          <Checkbox
+                            checked={
+                              filteredAllDatasets.length > 0 && filteredAllDatasets.every((d) => dialogDraftIds.includes(d.dataset_id))
+                                ? true
+                                : filteredAllDatasets.some((d) => dialogDraftIds.includes(d.dataset_id)) ? "indeterminate" : false
+                            }
+                            onCheckedChange={(v) => {
+                              if (v === true) { const vis = filteredAllDatasets.map((d) => d.dataset_id); setDialogDraftIds((prev) => [...new Set([...prev, ...vis])]); }
+                              else { const vis = new Set(filteredAllDatasets.map((d) => d.dataset_id)); setDialogDraftIds((prev) => prev.filter((id) => !vis.has(id))); }
+                            }}
+                            aria-label="Select all visible datasets"
+                          />
+                        ),
+                        width: 48,
+                        render: (_v, d) => (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Checkbox checked={dialogDraftIds.includes((d as DatasetRecord).dataset_id)} onCheckedChange={() => toggleDraftDataset((d as DatasetRecord).dataset_id)} />
+                          </div>
+                        ),
+                      },
+                      {
+                        key: "display_name",
+                        header: "Name",
+                        render: (v, d) => (
+                          <div className="font-medium text-sm">
+                            <span>{String(v)}</span>
+                            {(d as DatasetRecord).description ? <p className="text-[11px] text-muted-foreground font-normal line-clamp-1 mt-0.5">{(d as DatasetRecord).description}</p> : null}
+                          </div>
+                        ),
+                      },
+                      { key: "source", header: "Source", render: (v) => <Badge variant="outline" className="text-[10px] capitalize">{String(v ?? "upload")}</Badge> },
+                      { key: "total_rows", header: "Rows", align: "right", render: (v) => <span className="text-xs tabular-nums">{((v as number) ?? 0).toLocaleString()}</span> },
+                      {
+                        key: "_del",
+                        header: "",
+                        width: 48,
+                        align: "right",
+                        render: (_v, d) => (
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" aria-label={`Delete ${(d as DatasetRecord).display_name}`} disabled={deletingId === (d as DatasetRecord).dataset_id} onClick={() => setDeleteTarget(d as DatasetRecord)}>
+                              {deletingId === (d as DatasetRecord).dataset_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                            </Button>
+                          </div>
+                        ),
+                      },
+                    ] as ColumnDef[]}
+                    rows={filteredAllDatasets}
+                    getRowKey={(d) => (d as DatasetRecord).dataset_id}
+                    onRowClick={(d) => toggleDraftDataset((d as DatasetRecord).dataset_id)}
+                    maxHeight={420}
+                    rowClassName={(_v, i) => `cursor-pointer ${dialogDraftIds.includes((filteredAllDatasets[i] as DatasetRecord)?.dataset_id) ? "bg-muted/40" : ""}`}
+                  />
                 )}
 
                 <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t shrink-0">
@@ -1326,39 +1290,24 @@ export default function DataIngestion() {
                 {previewData.totalRows.toLocaleString()} total rows · showing {previewData.rows.length} · id{" "}
                 <span className="font-mono">{previewData.datasetId}</span>
               </p>
-              <div className="overflow-x-auto rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      {Object.keys(previewData.columns).map((col) => (
-                        <TableHead className="text-xs whitespace-nowrap" key={col}>
-                          <span className="font-medium">{col}</span>
-                          <span className="block text-[10px] font-normal text-muted-foreground">{previewData.columns[col]}</span>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {previewData.rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={Math.max(1, Object.keys(previewData.columns).length)} className="text-center text-sm text-muted-foreground py-8">
-                          No rows in this page
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      previewData.rows.map((row, i) => (
-                        <TableRow key={i}>
-                          {row.map((cell, j) => (
-                            <TableCell className="text-xs max-w-[200px] truncate" key={j}>
-                              {cell == null ? "—" : String(cell)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                columns={Object.keys(previewData.columns).map((col, j) => ({
+                  key: String(j),
+                  header: (
+                    <span className="whitespace-nowrap">
+                      <span className="font-medium">{col}</span>
+                      <span className="block text-[10px] font-normal text-muted-foreground">{previewData.columns[col]}</span>
+                    </span>
+                  ),
+                  render: (_v, row) => {
+                    const cell = (row as unknown[])[j];
+                    return <span className="text-xs max-w-[200px] truncate block">{cell == null ? "—" : String(cell)}</span>;
+                  },
+                }) as ColumnDef)}
+                rows={previewData.rows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
+                emptyMessage="No rows in this page"
+                getRowKey={(_r, i) => i}
+              />
             </div>
           ) : null}
           <DialogFooter>

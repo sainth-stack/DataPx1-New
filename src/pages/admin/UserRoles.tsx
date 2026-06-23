@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -161,50 +162,44 @@ export default function UserRoles() {
         </Button>
       </div>
 
-      <Card className="rounded-card overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-20">S.No</TableHead>
-              <TableHead>Role Name</TableHead>
-              <TableHead>Permissions</TableHead>
-              <TableHead className="w-28">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading roles…</TableCell></TableRow>
-            ) : filtered.map((role, i) => (
-              <TableRow key={role.id} className="hover:bg-muted/20">
-                <TableCell>{i + 1}</TableCell>
-                <TableCell className="font-medium">{role.name}</TableCell>
-                <TableCell>
-                  <div className="flex flex-wrap gap-1.5 max-w-lg">
-                    {role.permissions.slice(0, 6).map((p) => (
-                      <Badge key={p} variant="outline" className="bg-accent/5 text-accent border-accent/20 text-xs font-normal">{p}</Badge>
-                    ))}
-                    {role.permissions.length > 6 && (
-                      <Badge variant="outline" className="bg-muted text-muted-foreground text-xs">+{role.permissions.length - 6} more</Badge>
-                    )}
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(role, e)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(role.id); }}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No roles found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <div className="flex items-center justify-end gap-4 border-t px-4 py-3 text-sm text-muted-foreground">
-          <span>1-{filtered.length} of {filtered.length} items</span>
-        </div>
-      </Card>
+      <DataTable<RoleRecord>
+        columns={[
+          { key: "_no", header: "S.No", width: 80, render: (_v, _r, i) => i + 1 },
+          { key: "name", header: "Role Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+          {
+            key: "permissions",
+            header: "Permissions",
+            render: (v) => {
+              const perms = v as string[];
+              return (
+                <div className="flex flex-wrap gap-1.5 max-w-lg">
+                  {perms.slice(0, 6).map((p) => (
+                    <Badge key={p} variant="outline" className="bg-accent/5 text-accent border-accent/20 text-xs font-normal">{p}</Badge>
+                  ))}
+                  {perms.length > 6 && (
+                    <Badge variant="outline" className="bg-muted text-muted-foreground text-xs">+{perms.length - 6} more</Badge>
+                  )}
+                </div>
+              );
+            },
+          },
+          {
+            key: "_actions",
+            header: "",
+            width: 110,
+            render: (_v, role) => (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(role as RoleRecord, e)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm((role as RoleRecord).id); }}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ),
+          },
+        ] as ColumnDef<RoleRecord>[]}
+        rows={filtered}
+        loading={loading}
+        emptyMessage="No roles found."
+        getRowKey={(r) => r.id}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">

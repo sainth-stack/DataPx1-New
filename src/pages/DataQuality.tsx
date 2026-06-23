@@ -3,7 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import { Progress } from "@/components/ui/progress";
 import {
   Database, Sparkles, GitCompare, Download, AlertTriangle, CheckCircle2,
@@ -206,13 +206,13 @@ function KpiCard({
   tooltip?: { title: string; description: string; details: string[] };
 }) {
   const content = (
-    <Card className="rounded-card p-5 cursor-help">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-muted-foreground">{label}</p>
-        <Icon className={`h-4 w-4 ${color}`} />
+    <Card className="rounded-card p-5 cursor-help min-w-0">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs font-medium text-muted-foreground truncate">{label}</p>
+        <Icon className={`h-4 w-4 shrink-0 ${color}`} />
       </div>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-      {sub && <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p>}
+      <p className="mt-2 text-2xl font-semibold truncate">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-muted-foreground truncate">{sub}</p>}
     </Card>
   );
 
@@ -307,7 +307,9 @@ export default function DataQuality() {
   const [error, setError] = useState<string | null>(null);
   const [datasetLabel, setDatasetLabel] = useState("");
   const [rawKpi, setRawKpi] = useState<QualityKpi | null>(null);
+  const rawKpiRef = useRef<QualityKpi | null>(null);
   const [rawColumns, setRawColumns] = useState<string[]>([]);
+  const rawColumnsRef = useRef<string[]>([]);
   const [rawRows, setRawRows] = useState<(string | number | null)[][]>([]);
   const [syntheticKpi, setSyntheticKpi] = useState<QualityKpi | null>(null);
   const [syntheticColumns, setSyntheticColumns] = useState<string[]>([]);
@@ -334,6 +336,7 @@ export default function DataQuality() {
 
   const syntheticLoaded = useRef(false);
   const comparisonLoaded = useRef(false);
+  const tabFetchInFlight = useRef(false);
 
   const loadInitialData = useCallback(async () => {
     if (!activeDatasetId || !activeDataset) return;
@@ -341,8 +344,9 @@ export default function DataQuality() {
     setLoading(true);
     setError(null);
     syntheticLoaded.current = false;
-    comparisonLoaded.current = false;
-    setEnrichmentReady(false);
+      comparisonLoaded.current = false;
+      tabFetchInFlight.current = false;
+      setEnrichmentReady(false);
     setSyntheticKpi(null);
     setComparisonRows([]);
     setChartData([]);
@@ -361,6 +365,8 @@ export default function DataQuality() {
       const rawQuality = await dataProcessingApi.getRawQuality(activeDatasetId);
       const kpi = mapKpiMetrics(rawQuality.metrics);
       const preview = mapPreviewRows(rawQuality.preview);
+      rawKpiRef.current = kpi;
+      rawColumnsRef.current = preview.columns;
       setRawKpi(kpi);
       setRawColumns(preview.columns);
       setRawRows(preview.rows.slice(0, PREVIEW_ROW_LIMIT));
@@ -391,12 +397,14 @@ export default function DataQuality() {
   }, [activeDatasetId, datasetLoading, loadInitialData]);
 
   const loadSyntheticTab = useCallback(async () => {
-    if (!activeDatasetId || syntheticLoaded.current) return;
+    if (!activeDatasetId || syntheticLoaded.current || tabFetchInFlight.current) return;
+    tabFetchInFlight.current = true;
     setTabLoading(true);
     try {
       const data = await dataProcessingApi.getSyntheticQuality(activeDatasetId);
       const preview = mapPreviewRows(data.preview);
-      const baseCols = new Set(rawColumns.length ? rawColumns : preview.columns);
+      const cols = rawColumnsRef.current;
+      const baseCols = new Set(cols.length ? cols : preview.columns);
       setSyntheticKpi(mapKpiMetrics(data.metrics, data.new_columns?.length ?? 0));
       setSyntheticColumns(preview.columns);
       setSyntheticRows(preview.rows.slice(0, PREVIEW_ROW_LIMIT));
@@ -416,19 +424,22 @@ export default function DataQuality() {
     } catch (err) {
       toast.error(dataProcessingApi.extractMessage(err, "Failed to load synthetic quality"));
     } finally {
+      tabFetchInFlight.current = false;
       setTabLoading(false);
     }
-  }, [activeDatasetId, rawColumns]);
+  }, [activeDatasetId]);
 
   const loadComparisonTab = useCallback(async () => {
-    if (!activeDatasetId || !rawKpi || comparisonLoaded.current) return;
+    const kpi = rawKpiRef.current;
+    if (!activeDatasetId || !kpi || comparisonLoaded.current || tabFetchInFlight.current) return;
+    tabFetchInFlight.current = true;
     setTabLoading(true);
     try {
       const data = await dataProcessingApi.getQualityComparison(activeDatasetId);
       const enrichedCount = data.cards?.enriched_columns_count ?? 0;
       const synthKpi = mapKpiMetrics(data.synthetic, enrichedCount);
       setSyntheticKpi(synthKpi);
-      setQualityUplift(data.quality_uplift ?? synthKpi.qualityScore - rawKpi.qualityScore);
+      setQualityUplift(data.quality_uplift ?? synthKpi.qualityScore - kpi.qualityScore);
       setComparisonRows(mapComparisonRows(data.side_by_side_metrics ?? []));
       setChartData(mapChartData(data.missing_values_chart ?? {}));
       setKeyImprovements(data.key_improvements ?? []);
@@ -436,18 +447,19 @@ export default function DataQuality() {
     } catch (err) {
       toast.error(dataProcessingApi.extractMessage(err, "Failed to load quality comparison"));
     } finally {
+      tabFetchInFlight.current = false;
       setTabLoading(false);
     }
-  }, [activeDatasetId, rawKpi]);
+  }, [activeDatasetId]);
 
   const handleTabChange = useCallback(
     (tab: string) => {
       setActiveTab(tab);
       if (!enrichmentReady) return;
-      if (tab === "synthetic") void loadSyntheticTab();
-      if (tab === "compare" && comparisonRows.length === 0) void loadComparisonTab();
+      if (tab === "synthetic" && !syntheticLoaded.current) void loadSyntheticTab();
+      if (tab === "compare" && !comparisonLoaded.current) void loadComparisonTab();
     },
-    [enrichmentReady, loadSyntheticTab, loadComparisonTab, comparisonRows.length],
+    [enrichmentReady, loadSyntheticTab, loadComparisonTab],
   );
 
   const openEnrichmentDialog = useCallback(async () => {
@@ -480,8 +492,10 @@ export default function DataQuality() {
 
   const handleEnrichmentResult = useCallback(
     (result: Record<string, unknown>) => {
-      if (!rawKpi) return;
-      const applied = applyEnrichmentResult(result, rawKpi, rawColumns);
+      const kpi = rawKpiRef.current;
+      const cols = rawColumnsRef.current;
+      if (!kpi) return;
+      const applied = applyEnrichmentResult(result, kpi, cols);
       setSyntheticKpi(applied.syntheticKpi);
       setQualityUplift(applied.uplift);
       setJourney(applied.journey);
@@ -500,7 +514,7 @@ export default function DataQuality() {
       }
       setEnrichmentReady(true);
     },
-    [rawKpi, rawColumns],
+    [],
   );
 
   const runEnrichment = useCallback(async () => {
@@ -579,14 +593,47 @@ export default function DataQuality() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold">Data Quality Assessment</h1>
-        <p className="text-sm text-muted-foreground mt-0.5">
-          {datasetLabel
-            ? `Dataset: ${datasetLabel} — compare raw vs enriched synthetic quality.`
-            : "Compare raw telemetry against the cleaned & enriched synthetic dataset to quantify data quality uplift."}
-        </p>
+    <div className="space-y-6 max-w-full">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-semibold">Data Quality Assessment</h1>
+            {rawQualityInfo && (
+              <Badge
+                variant="outline"
+                className={`text-[11px] font-semibold ${
+                  rawKpi.qualityScore >= 85
+                    ? "bg-success/10 text-success border-success/30"
+                    : rawKpi.qualityScore >= 70
+                    ? "bg-warning/10 text-warning border-warning/30"
+                    : "bg-destructive/10 text-destructive border-destructive/30"
+                }`}
+              >
+                {rawQualityInfo.level} · {rawKpi.qualityScore}/100
+              </Badge>
+            )}
+            {enrichmentReady && (
+              <Badge variant="outline" className="text-[11px] bg-success/10 text-success border-success/30">
+                <ShieldCheck className="h-3 w-3 mr-1" />
+                Enriched
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm text-muted-foreground mt-1">
+            {datasetLabel
+              ? `Dataset: ${datasetLabel} — compare raw vs enriched synthetic quality.`
+              : "Compare raw telemetry against the cleaned & enriched synthetic dataset to quantify data quality uplift."}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="shrink-0"
+          onClick={() => void openEnrichmentDialog()}
+        >
+          <Wand2 className="h-4 w-4 mr-1.5" />
+          Cleanse &amp; Enrich
+        </Button>
       </div>
 
       {needsImprovement && (
@@ -609,15 +656,19 @@ export default function DataQuality() {
 
       <Card className="rounded-card p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-accent" />
-            Data Flow Journey
-          </h2>
+          <div>
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-accent" />
+              Data Flow Journey
+            </h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Raw → Quality check → AI enrichment → Synthetic</p>
+          </div>
           {syntheticKpi && uplift > 0 && (
             <TooltipProvider>
               <UITooltip>
                 <TooltipTrigger asChild>
-                  <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20 cursor-help">
+                  <Badge variant="outline" className="text-[11px] font-semibold bg-success/10 text-success border-success/20 cursor-help">
+                    <TrendingUp className="h-3 w-3 mr-1" />
                     +{uplift} pts uplift
                   </Badge>
                 </TooltipTrigger>
@@ -631,115 +682,139 @@ export default function DataQuality() {
             </TooltipProvider>
           )}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-7 gap-3 items-stretch">
-          <div className="md:col-span-2 rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
-            <div className="flex items-center gap-2">
-              <Database className="h-4 w-4 text-warning" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-warning">Raw</span>
+        <div className="overflow-x-auto -mx-5 px-5 pb-1">
+          <div className="flex items-stretch gap-3" style={{ minWidth: "fit-content" }}>
+
+            {/* RAW */}
+            <div className="min-w-[190px] w-[190px] rounded-lg border-2 border-warning/30 bg-warning/5 p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Database className="h-4 w-4 text-warning shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-warning">Raw</span>
+              </div>
+              <p className="text-2xl font-bold">{journeyRawRows.toLocaleString()}</p>
+              <p className="text-[11px] text-muted-foreground">rows ingested</p>
+              <p className="mt-2 text-[11px] text-warning">
+                {rawKpi.missingCells.toLocaleString()} missing · {rawKpi.outliers} outliers
+              </p>
             </div>
-            <p className="mt-2 text-2xl font-bold">{journeyRawRows.toLocaleString()}</p>
-            <p className="text-[11px] text-muted-foreground">rows ingested</p>
-            <p className="mt-2 text-[11px] text-warning">
-              {rawKpi.missingCells.toLocaleString()} missing · {rawKpi.outliers} outliers
-            </p>
-          </div>
 
-          <div className="hidden md:flex items-center justify-center">
-            <ArrowRight className="h-5 w-5 text-muted-foreground" />
-          </div>
+            <div className="flex items-center justify-center shrink-0 px-1">
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </div>
 
-          <div className="md:col-span-1 rounded-lg border bg-card p-4 text-center flex flex-col justify-center">
-            <p className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Quality</p>
-            {rawQualityInfo && (
-              <TooltipProvider>
-                <UITooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <p className={`mt-1 text-3xl font-bold ${rawQualityInfo.color}`}>{rawKpi.qualityScore}%</p>
-                      <p className={`text-[10px] font-medium ${rawQualityInfo.color}`}>{rawQualityInfo.level}</p>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[320px] p-4">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold">{rawQualityInfo.level} Quality</p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">{rawQualityInfo.description}</p>
-                      <div className="pt-2 border-t">
-                        <p className="text-xs font-semibold mb-1.5">Recommendations:</p>
-                        <ul className="text-xs space-y-1 text-muted-foreground">
-                          {rawQualityInfo.recommendations.map((rec, i) => (
-                            <li key={i} className="flex gap-1.5">
-                              <span className="text-accent">•</span>
-                              <span>{rec}</span>
-                            </li>
-                          ))}
-                        </ul>
+            {/* Quality score indicator */}
+            <div className="min-w-[120px] w-[120px] rounded-lg border bg-card p-4 text-center flex flex-col justify-center shrink-0">
+              <p className="text-[10px] uppercase tracking-wide font-semibold text-muted-foreground">Quality</p>
+              {rawQualityInfo && (
+                <TooltipProvider>
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <p className={`mt-1 text-3xl font-bold ${rawQualityInfo.color}`}>{rawKpi.qualityScore}%</p>
+                        <p className={`text-[10px] font-medium ${rawQualityInfo.color}`}>{rawQualityInfo.level}</p>
                       </div>
-                    </div>
-                  </TooltipContent>
-                </UITooltip>
-              </TooltipProvider>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => void openEnrichmentDialog()}
-            className="md:col-span-1 rounded-lg border-2 border-accent/40 bg-accent/5 p-4 text-center flex flex-col items-center justify-center hover:bg-accent/10 hover:border-accent/60 transition-all cursor-pointer"
-          >
-            <Wand2 className="h-5 w-5 text-accent" />
-            <p className="mt-1.5 text-xs font-semibold text-accent">Cleanse &amp; Enrich</p>
-            <p className="text-[10px] text-muted-foreground">
-              {planOperations.length > 0 ? `${planOperations.length} ops` : "Plan on open"}
-            </p>
-            <p className="text-[9px] text-accent mt-1">Click to run</p>
-          </button>
-
-          <div className="hidden md:flex items-center justify-center">
-            <ArrowRight className="h-5 w-5 text-muted-foreground" />
-          </div>
-
-          <div className="md:col-span-1 rounded-lg border-2 border-success/30 bg-success/5 p-4">
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-4 w-4 text-success" />
-              <span className="text-xs font-semibold uppercase tracking-wide text-success">Synthetic</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[320px] p-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold">{rawQualityInfo.level} Quality</p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">{rawQualityInfo.description}</p>
+                        <div className="pt-2 border-t">
+                          <p className="text-xs font-semibold mb-1.5">Recommendations:</p>
+                          <ul className="text-xs space-y-1 text-muted-foreground">
+                            {rawQualityInfo.recommendations.map((rec, i) => (
+                              <li key={i} className="flex gap-1.5">
+                                <span className="text-accent">•</span>
+                                <span>{rec}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </TooltipContent>
+                  </UITooltip>
+                </TooltipProvider>
+              )}
             </div>
-            {syntheticKpi && syntheticQualityInfo ? (
-              <TooltipProvider>
-                <UITooltip>
-                  <TooltipTrigger asChild>
-                    <div className="cursor-help">
-                      <p className="mt-2 text-2xl font-bold text-success">{syntheticKpi.qualityScore}%</p>
-                      <p className="text-[11px] text-success font-medium">{syntheticQualityInfo.level}</p>
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-[320px] p-4">
-                    <div className="space-y-2">
-                      <p className="text-xs font-semibold">{syntheticQualityInfo.level} Quality</p>
-                      <p className="text-xs leading-relaxed text-muted-foreground">{syntheticQualityInfo.description}</p>
-                    </div>
-                  </TooltipContent>
-                </UITooltip>
-              </TooltipProvider>
-            ) : (
-              <p className="mt-2 text-sm text-muted-foreground">Run enrichment</p>
-            )}
+
+            {/* Cleanse & Enrich CTA */}
+            <button
+              type="button"
+              onClick={() => void openEnrichmentDialog()}
+              className="min-w-[140px] w-[140px] shrink-0 rounded-lg border-2 border-accent/50 bg-accent/5 p-4 text-center flex flex-col items-center justify-center gap-1 hover:bg-accent/10 hover:border-accent/70 transition-all cursor-pointer group"
+            >
+              <div className="h-9 w-9 rounded-full bg-accent/10 flex items-center justify-center group-hover:bg-accent/20 transition-colors">
+                <Wand2 className="h-5 w-5 text-accent" />
+              </div>
+              <p className="text-xs font-semibold text-accent leading-tight">Cleanse &amp; Enrich</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">
+                {planOperations.length > 0 ? `${planOperations.length} ops ready` : "AI-powered"}
+              </p>
+            </button>
+
+            <div className="flex items-center justify-center shrink-0 px-1">
+              <ArrowRight className="h-5 w-5 text-muted-foreground" />
+            </div>
+
+            {/* Synthetic */}
+            <div className="min-w-[190px] w-[190px] rounded-lg border-2 border-success/30 bg-success/5 p-4 shrink-0">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck className="h-4 w-4 text-success shrink-0" />
+                <span className="text-xs font-semibold uppercase tracking-wide text-success">Synthetic</span>
+              </div>
+              {syntheticKpi && syntheticQualityInfo ? (
+                <TooltipProvider>
+                  <UITooltip>
+                    <TooltipTrigger asChild>
+                      <div className="cursor-help">
+                        <p className="text-2xl font-bold text-success">{syntheticKpi.qualityScore}%</p>
+                        <p className="text-[11px] text-success font-medium">{syntheticQualityInfo.level}</p>
+                        {uplift > 0 && (
+                          <p className="mt-1 text-[10px] text-success/70">+{uplift} pts from raw</p>
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-[320px] p-4">
+                      <div className="space-y-2">
+                        <p className="text-xs font-semibold">{syntheticQualityInfo.level} Quality</p>
+                        <p className="text-xs leading-relaxed text-muted-foreground">{syntheticQualityInfo.description}</p>
+                      </div>
+                    </TooltipContent>
+                  </UITooltip>
+                </TooltipProvider>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-foreground">Not yet enriched</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">Run Cleanse &amp; Enrich</p>
+                </>
+              )}
+            </div>
+
           </div>
         </div>
       </Card>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList>
-          <TabsTrigger value="raw" className="gap-2"><Database className="h-4 w-4" /> Raw Data View</TabsTrigger>
-          <TabsTrigger value="synthetic" className="gap-2" disabled={!enrichmentReady}>
-            <Sparkles className="h-4 w-4" /> Synthetic Data View
-          </TabsTrigger>
-          <TabsTrigger value="compare" className="gap-2" disabled={!enrichmentReady}>
-            <GitCompare className="h-4 w-4" /> Comparison View
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <TabsList className="h-9">
+            <TabsTrigger value="raw" className="gap-1.5 text-xs h-7">
+              <Database className="h-3.5 w-3.5" /> Raw Data View
+            </TabsTrigger>
+            <TabsTrigger value="synthetic" className="gap-1.5 text-xs h-7" disabled={!enrichmentReady}>
+              <Sparkles className="h-3.5 w-3.5" /> Synthetic Data View
+            </TabsTrigger>
+            <TabsTrigger value="compare" className="gap-1.5 text-xs h-7" disabled={!enrichmentReady}>
+              <GitCompare className="h-3.5 w-3.5" /> Comparison View
+            </TabsTrigger>
+          </TabsList>
+          {!enrichmentReady && (
+            <p className="text-[11px] text-muted-foreground">
+              Run <span className="font-medium text-accent">Cleanse &amp; Enrich</span> to unlock Synthetic &amp; Comparison views
+            </p>
+          )}
+        </div>
 
-        <TabsContent value="raw" className="space-y-4 mt-4">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <TabsContent value="raw" className="space-y-4 mt-4 min-w-0">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 min-w-0">
             <KpiCard
               label="Quality Score"
               value={`${rawKpi.qualityScore}/100`}
@@ -803,48 +878,53 @@ export default function DataQuality() {
           </div>
 
           <Card className="rounded-card p-5">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
               <div>
                 <h2 className="text-sm font-semibold">Raw Telemetry — first {PREVIEW_ROW_LIMIT} rows</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Empty cells = missing values · highlighted = outliers</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Empty cells = missing values · <span className="text-warning">highlighted</span> = outliers
+                </p>
               </div>
-              <Badge variant="outline" className="text-[10px]">{rawKpi.totalRows.toLocaleString()} total rows</Badge>
+              <div className="flex items-center gap-2 shrink-0">
+                <Badge variant="outline" className="text-[10px]">{rawKpi.totalRows.toLocaleString()} total rows</Badge>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={() => downloadCsv("raw_dataset.csv", rawColumns, rawRows)}
+                >
+                  <Download className="h-3.5 w-3.5 mr-1" /> Export
+                </Button>
+              </div>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    {rawColumns.map((c) => (
-                      <TableHead key={c} className="text-[11px] uppercase tracking-wide">{c}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {rawRows.map((row, i) => (
-                    <TableRow key={i}>
-                      {row.map((cell, j) => {
-                        const missing = cell === null || cell === undefined || cell === "";
-                        const outlier = rawColumns[j]?.includes("temperature") && typeof cell === "number" && cell > 200;
-                        return (
-                          <TableCell
-                            key={j}
-                            className={`text-xs font-mono ${
-                              missing ? "bg-destructive/10 text-destructive" : outlier ? "bg-warning/15 text-warning font-semibold" : ""
-                            }`}
-                          >
-                            {missing ? "— null —" : String(cell)}
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable
+                columns={rawColumns.map((c, j) => ({
+                  key: String(j),
+                  header: c,
+                  render: (_v, row) => {
+                    const cell = (row as Record<string, unknown>)[String(j)];
+                    const missing = cell === null || cell === undefined || cell === "";
+                    const outlier = c.includes("temperature") && typeof cell === "number" && cell > 200;
+                    return (
+                      <span className={`font-mono text-xs ${
+                        missing ? "text-destructive" : outlier ? "text-warning font-semibold" : ""
+                      }`}
+                        style={missing ? { background: "hsl(var(--destructive)/0.1)" } : outlier ? { background: "hsl(var(--warning)/0.15)" } : undefined}
+                      >
+                        {missing ? "— null —" : String(cell)}
+                      </span>
+                    );
+                  },
+                }) as ColumnDef)}
+                rows={rawRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
+                loading={tabLoading}
+                emptyMessage="No telemetry rows available."
+                getRowKey={(_r, i) => i}
+              />
           </Card>
         </TabsContent>
 
-        <TabsContent value="synthetic" className="space-y-4 mt-4">
+        <TabsContent value="synthetic" className="space-y-4 mt-4 min-w-0">
           {tabLoading && (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -860,7 +940,7 @@ export default function DataQuality() {
           )}
           {!tabLoading && syntheticKpi && syntheticQualityInfo && (
             <>
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 min-w-0">
                 <KpiCard
                   label="Quality Score"
                   value={`${syntheticKpi.qualityScore}/100`}
@@ -931,28 +1011,16 @@ export default function DataQuality() {
                       {planOperations.length} operations completed
                     </Badge>
                   </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead>Operation</TableHead>
-                        <TableHead>Target</TableHead>
-                        <TableHead className="text-right">Records Affected</TableHead>
-                        <TableHead>Description & Impact</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {planOperations.map((o, i) => (
-                        <TableRow key={o.id ?? i}>
-                          <TableCell className="font-medium text-xs">
-                            <Badge variant="outline" className="text-[10px] bg-accent/10 text-accent border-accent/20">{o.op}</Badge>
-                          </TableCell>
-                          <TableCell className="font-mono text-xs">{o.target}</TableCell>
-                          <TableCell className="text-right font-mono text-xs font-semibold">{o.count.toLocaleString()}</TableCell>
-                          <TableCell className="text-xs text-muted-foreground">{o.description}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={[
+                      { key: "op", header: "Operation", render: (v) => <Badge variant="outline" className="text-[10px] bg-accent/10 text-accent border-accent/20">{String(v)}</Badge> },
+                      { key: "target", header: "Target", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+                      { key: "count", header: "Records Affected", align: "right", render: (v) => <span className="font-mono text-xs font-semibold">{(v as number).toLocaleString()}</span> },
+                      { key: "description", header: "Description & Impact", render: (v) => <span className="text-muted-foreground">{String(v)}</span> },
+                    ] as ColumnDef[]}
+                    rows={planOperations as unknown as Record<string, unknown>[]}
+                    getRowKey={(o, i) => (o as { id?: string | number }).id ?? i}
+                  />
                 </Card>
               )}
 
@@ -972,43 +1040,34 @@ export default function DataQuality() {
                       <Download className="h-4 w-4" /> Download CSV
                     </Button>
                   </div>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/30">
-                          {syntheticColumns.map((c) => (
-                            <TableHead
-                              key={c}
-                              className={`text-[11px] uppercase tracking-wide ${newColumnNames.includes(c) ? "text-accent" : ""}`}
-                            >
-                              {c}{newColumnNames.includes(c) && " ✦"}
-                            </TableHead>
-                          ))}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {syntheticRows.map((row, i) => (
-                          <TableRow key={i}>
-                            {row.map((cell, j) => (
-                              <TableCell
-                                key={j}
-                                className={`text-xs font-mono ${newColumnNames.includes(syntheticColumns[j]) ? "bg-accent/5 text-accent" : ""}`}
-                              >
-                                {String(cell ?? "")}
-                              </TableCell>
-                            ))}
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                  <DataTable
+                    columns={syntheticColumns.map((c, j) => ({
+                      key: String(j),
+                      header: (
+                        <span className={newColumnNames.includes(c) ? "text-accent" : ""}>
+                          {c}{newColumnNames.includes(c) ? " ✦" : ""}
+                        </span>
+                      ),
+                      render: (_v, row) => {
+                        const cell = (row as Record<string, unknown>)[String(j)];
+                        const isNew = newColumnNames.includes(c);
+                        return (
+                          <span className={`font-mono text-xs ${isNew ? "text-accent" : ""}`}>
+                            {String(cell ?? "")}
+                          </span>
+                        );
+                      },
+                    }) as ColumnDef)}
+                    rows={syntheticRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
+                    getRowKey={(_r, i) => i}
+                  />
                 </Card>
               )}
             </>
           )}
         </TabsContent>
 
-        <TabsContent value="compare" className="space-y-4 mt-4">
+        <TabsContent value="compare" className="space-y-4 mt-4 min-w-0">
           {tabLoading && (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -1052,37 +1111,33 @@ export default function DataQuality() {
               {comparisonRows.length > 0 && (
                 <Card className="rounded-card p-5">
                   <h2 className="text-sm font-semibold mb-3">Side-by-Side Metric Comparison</h2>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead>Metric</TableHead>
-                        <TableHead className="text-right">Raw</TableHead>
-                        <TableHead className="text-right">Synthetic</TableHead>
-                        <TableHead className="text-right">Δ Change</TableHead>
-                        <TableHead>Outcome</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {comparisonRows.map((c) => (
-                        <TableRow key={c.metric}>
-                          <TableCell className="font-medium text-xs">{c.metric}</TableCell>
-                          <TableCell className="text-right font-mono text-xs text-muted-foreground">{c.raw}</TableCell>
-                          <TableCell className="text-right font-mono text-xs font-semibold">{c.synthetic}</TableCell>
-                          <TableCell className="text-right font-mono text-xs">
-                            <span className="text-success">
-                              {c.deltaPct > 0 ? "+" : ""}{c.deltaPct}%
-                            </span>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
-                              {c.deltaPct > 0 ? <TrendingUp className="h-3 w-3 mr-1 inline" /> : <TrendingDown className="h-3 w-3 mr-1 inline" />}
-                              Improved
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={[
+                      { key: "metric", header: "Metric", render: (v) => <span className="font-medium text-xs">{String(v)}</span> },
+                      { key: "raw", header: "Raw", align: "right", render: (v) => <span className="font-mono text-xs text-muted-foreground">{String(v)}</span> },
+                      { key: "synthetic", header: "Synthetic", align: "right", render: (v) => <span className="font-mono text-xs font-semibold">{String(v)}</span> },
+                      {
+                        key: "deltaPct",
+                        header: "Δ Change",
+                        align: "right",
+                        render: (v) => <span className="font-mono text-xs text-success">{(v as number) > 0 ? "+" : ""}{String(v)}%</span>,
+                      },
+                      {
+                        key: "_outcome",
+                        header: "Outcome",
+                        render: (_v, c) => (
+                          <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
+                            {(c as { deltaPct: number }).deltaPct > 0
+                              ? <TrendingUp className="h-3 w-3 mr-1 inline" />
+                              : <TrendingDown className="h-3 w-3 mr-1 inline" />}
+                            Improved
+                          </Badge>
+                        ),
+                      },
+                    ] as ColumnDef[]}
+                    rows={comparisonRows as unknown as Record<string, unknown>[]}
+                    getRowKey={(c) => (c as { metric: string }).metric}
+                  />
                 </Card>
               )}
 

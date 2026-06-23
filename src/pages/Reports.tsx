@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Download, FileText, Activity, Thermometer, Waves, Search, FileSpreadsheet,
   Plus, Sparkles, Trash2, Wand2, X, BarChart3, TrendingUp, AlertCircle, CheckCircle2,
@@ -595,40 +593,28 @@ export default function Reports() {
           {logs.length > ROW_PREVIEW_LIMIT && (
             <p className="text-xs text-muted-foreground">Showing first {ROW_PREVIEW_LIMIT} of {logs.length} rows. Export CSV for the full dataset.</p>
           )}
-          <Card className="rounded-xl overflow-hidden border shadow-sm">
-            {logsPreview.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">No agent actions in this period.</div>
-            ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 border-b">
-                  <TableHead className="font-semibold">Timestamp</TableHead>
-                  <TableHead className="font-semibold">Agent Name</TableHead>
-                  <TableHead className="font-semibold">Priority</TableHead>
-                  <TableHead className="font-semibold">Asset ID</TableHead>
-                  <TableHead className="font-semibold">Action Description</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {logsPreview.map((r, i) => (
-                  <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-xs font-mono text-muted-foreground">{r.ts}</TableCell>
-                    <TableCell className="font-semibold">{r.agent}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`capitalize font-medium ${levelBadge[r.level]}`}>
-                        {r.level === 'error' && <AlertCircle className="h-3 w-3 mr-1" />}
-                        {r.level === 'info' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                        {r.level}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground font-medium">{r.asset}</TableCell>
-                    <TableCell className="text-sm">{r.message}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            )}
-          </Card>
+          <DataTable
+            columns={[
+              { key: "ts", header: "Timestamp", render: (v) => <span className="text-xs font-mono text-muted-foreground">{String(v)}</span> },
+              { key: "agent", header: "Agent Name", render: (v) => <span className="font-semibold">{String(v)}</span> },
+              {
+                key: "level",
+                header: "Priority",
+                render: (v) => (
+                  <Badge variant="outline" className={`capitalize font-medium ${levelBadge[v as string]}`}>
+                    {v === "error" && <AlertCircle className="h-3 w-3 mr-1" />}
+                    {v === "info" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {String(v)}
+                  </Badge>
+                ),
+              },
+              { key: "asset", header: "Asset ID", render: (v) => <span className="text-muted-foreground font-medium">{String(v)}</span> },
+              { key: "message", header: "Action Description" },
+            ] as ColumnDef[]}
+            rows={logsPreview}
+            emptyMessage="No agent actions in this period."
+            getRowKey={(_r, i) => i}
+          />
           </>
           )}
         </TabsContent>
@@ -654,44 +640,20 @@ export default function Reports() {
           {perf.length > ROW_PREVIEW_LIMIT && (
             <p className="text-xs text-muted-foreground">Showing first {ROW_PREVIEW_LIMIT} of {perf.length} rows.</p>
           )}
-          <Card className="rounded-xl overflow-hidden border shadow-sm">
-            {perfPreview.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">No performance records for this dataset.</div>
-            ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 border-b">
-                  <TableHead className="font-semibold">Asset ID</TableHead>
-                  <TableHead className="font-semibold">Shift</TableHead>
-                  <TableHead className="font-semibold">OEE Score</TableHead>
-                  <TableHead className="font-semibold">Availability</TableHead>
-                  <TableHead className="font-semibold">Performance</TableHead>
-                  <TableHead className="font-semibold">Quality</TableHead>
-                  <TableHead className="font-semibold text-right">Total Output</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {perfPreview.map((r, i) => (
-                  <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="font-bold">{r.asset}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="font-medium">Shift {r.shift}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`font-mono font-semibold ${r.oee >= 85 ? 'text-green-600' : r.oee >= 75 ? 'text-amber-600' : 'text-red-600'}`}>
-                        {r.oee.toFixed(1)}%
-                      </span>
-                    </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{r.availability.toFixed(1)}%</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{r.performance.toFixed(1)}%</TableCell>
-                    <TableCell className="font-mono text-muted-foreground">{r.quality.toFixed(1)}%</TableCell>
-                    <TableCell className="font-mono font-semibold text-right">{r.output.toLocaleString()} units</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            )}
-          </Card>
+          <DataTable
+            columns={[
+              { key: "asset", header: "Asset ID", render: (v) => <span className="font-bold">{String(v)}</span> },
+              { key: "shift", header: "Shift", render: (v) => <Badge variant="outline" className="font-medium">Shift {String(v)}</Badge> },
+              { key: "oee", header: "OEE Score", render: (v) => <span className={`font-mono font-semibold ${(v as number) >= 85 ? "text-green-600" : (v as number) >= 75 ? "text-amber-600" : "text-red-600"}`}>{(v as number).toFixed(1)}%</span> },
+              { key: "availability", header: "Availability", render: (v) => <span className="font-mono text-muted-foreground">{(v as number).toFixed(1)}%</span> },
+              { key: "performance", header: "Performance", render: (v) => <span className="font-mono text-muted-foreground">{(v as number).toFixed(1)}%</span> },
+              { key: "quality", header: "Quality", render: (v) => <span className="font-mono text-muted-foreground">{(v as number).toFixed(1)}%</span> },
+              { key: "output", header: "Total Output", align: "right", render: (v) => <span className="font-mono font-semibold">{(v as number).toLocaleString()} units</span> },
+            ] as ColumnDef[]}
+            rows={perfPreview}
+            emptyMessage="No performance records for this dataset."
+            getRowKey={(_r, i) => i}
+          />
           </>
           )}
         </TabsContent>
@@ -717,56 +679,36 @@ export default function Reports() {
           {sensors.length > ROW_PREVIEW_LIMIT && (
             <p className="text-xs text-muted-foreground">Showing first {ROW_PREVIEW_LIMIT} of {sensors.length} rows.</p>
           )}
-          <Card className="rounded-xl overflow-hidden border shadow-sm">
-            {sensorsPreview.length === 0 ? (
-              <div className="p-10 text-center text-sm text-muted-foreground">No sensor diagnostic events found.</div>
-            ) : (
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 border-b">
-                  <TableHead className="font-semibold">Timestamp</TableHead>
-                  <TableHead className="font-semibold">Asset ID</TableHead>
-                  <TableHead className="font-semibold">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Thermometer className="h-4 w-4" /> Temperature (°C)
-                    </span>
-                  </TableHead>
-                  <TableHead className="font-semibold">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Waves className="h-4 w-4" /> Vibration (g)
-                    </span>
-                  </TableHead>
-                  <TableHead className="font-semibold">Health Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {sensorsPreview.map((r, i) => (
-                  <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                    <TableCell className="text-xs font-mono text-muted-foreground">{r.ts}</TableCell>
-                    <TableCell className="font-bold">{r.asset}</TableCell>
-                    <TableCell>
-                      <span className={`font-mono font-semibold ${r.thermalC >= 85 ? 'text-red-600' : r.thermalC >= 70 ? 'text-amber-600' : 'text-green-600'}`}>
-                        {r.thermalC.toFixed(1)}°C
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <span className={`font-mono font-semibold ${r.vibrationG >= 6 ? 'text-red-600' : r.vibrationG >= 4 ? 'text-amber-600' : 'text-green-600'}`}>
-                        {r.vibrationG.toFixed(1)}g
-                      </span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={`capitalize font-medium ${statusBadge[r.status]}`}>
-                        {r.status === 'alert' && <AlertCircle className="h-3 w-3 mr-1" />}
-                        {r.status === 'normal' && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                        {r.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            )}
-          </Card>
+          <DataTable
+            columns={[
+              { key: "ts", header: "Timestamp", render: (v) => <span className="text-xs font-mono text-muted-foreground">{String(v)}</span> },
+              { key: "asset", header: "Asset ID", render: (v) => <span className="font-bold">{String(v)}</span> },
+              {
+                key: "thermalC",
+                header: <span className="inline-flex items-center gap-1.5"><Thermometer className="h-4 w-4" /> Temperature (°C)</span>,
+                render: (v) => <span className={`font-mono font-semibold ${(v as number) >= 85 ? "text-red-600" : (v as number) >= 70 ? "text-amber-600" : "text-green-600"}`}>{(v as number).toFixed(1)}°C</span>,
+              },
+              {
+                key: "vibrationG",
+                header: <span className="inline-flex items-center gap-1.5"><Waves className="h-4 w-4" /> Vibration (g)</span>,
+                render: (v) => <span className={`font-mono font-semibold ${(v as number) >= 6 ? "text-red-600" : (v as number) >= 4 ? "text-amber-600" : "text-green-600"}`}>{(v as number).toFixed(1)}g</span>,
+              },
+              {
+                key: "status",
+                header: "Health Status",
+                render: (v) => (
+                  <Badge variant="outline" className={`capitalize font-medium ${statusBadge[v as string]}`}>
+                    {v === "alert" && <AlertCircle className="h-3 w-3 mr-1" />}
+                    {v === "normal" && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                    {String(v)}
+                  </Badge>
+                ),
+              },
+            ] as ColumnDef[]}
+            rows={sensorsPreview}
+            emptyMessage="No sensor diagnostic events found."
+            getRowKey={(_r, i) => i}
+          />
           </>
           )}
         </TabsContent>
@@ -852,36 +794,29 @@ export default function Reports() {
                         </p>
                       </div>
                     ) : (
-                      <div className="max-h-96 overflow-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow className="bg-muted/40 border-b">
-                              {displayCols.map(c => <TableHead key={c} className="font-semibold">{colLabel(c)}</TableHead>)}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {rpt.rows.slice(0, 50).map((row, i) => (
-                              <TableRow key={i} className="hover:bg-muted/30 transition-colors">
-                                {displayCols.map(c => {
-                                  const apiKey = c === "ts" ? "timestamp" : c;
-                                  const val = row[c] ?? row[apiKey];
-                                  return (
-                                  <TableCell key={c} className="text-sm">
-                                    {typeof val === "number" ? (
-                                      <span className="font-mono font-medium">{val}</span>
-                                    ) : String(val ?? "")}
-                                  </TableCell>
-                                );})}
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                      <>
+                        <DataTable
+                          columns={displayCols.map((c) => ({
+                            key: c,
+                            header: colLabel(c),
+                            render: (v, row) => {
+                              const apiKey = c === "ts" ? "timestamp" : c;
+                              const val = v ?? (row as Record<string, unknown>)[apiKey];
+                              return typeof val === "number"
+                                ? <span className="font-mono font-medium">{val}</span>
+                                : String(val ?? "");
+                            },
+                          }) as ColumnDef)}
+                          rows={rpt.rows.slice(0, 50)}
+                          getRowKey={(_r, i) => i}
+                          maxHeight={384}
+                        />
                         {rpt.recordCount > 50 && (
                           <div className="p-3 text-center text-xs font-medium text-muted-foreground bg-muted/30 border-t">
                             Displaying first 50 of {rpt.recordCount.toLocaleString()} records · Download CSV for complete dataset
                           </div>
                         )}
-                      </div>
+                      </>
                     )}
                   </Card>
                 );

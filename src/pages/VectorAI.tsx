@@ -15,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -606,51 +606,41 @@ export default function VectorAI() {
             />
           </Card>
 
-          <Card className="rounded-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead className="text-[10px] uppercase tracking-wide">Detected</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Signal</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Asset</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Type</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Baseline → Observed</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Z-score</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Confidence</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Agent</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {anomalies.map((an) => (
-                    <TableRow key={an.id} className="hover:bg-muted/40">
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1"><Clock className="h-3 w-3" />{an.ts}</span>
-                      </TableCell>
-                      <TableCell className="text-xs font-medium">{an.signal}</TableCell>
-                      <TableCell className="text-xs">{an.asset}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className={`text-[10px] capitalize ${classificationBadge[an.classification]}`}>{an.classification}</Badge>
-                      </TableCell>
-                      <TableCell className="text-xs whitespace-nowrap">
-                        <span className="text-muted-foreground">{an.baseline}</span>
-                        <span className="mx-1.5 text-muted-foreground">→</span>
-                        <span className="font-semibold text-foreground">{an.observed}</span>
-                      </TableCell>
-                      <TableCell className="text-xs font-mono font-semibold">{an.zScore.toFixed(1)}σ</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2 min-w-[100px]">
-                          <Progress value={an.confidence * 100} className="h-1.5 flex-1" />
-                          <span className="text-[11px] font-semibold tabular-nums">{Math.round(an.confidence * 100)}%</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{an.detectedBy}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+          <DataTable<Anomaly>
+            columns={[
+              { key: "ts", header: "Detected", render: (v) => <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap"><Clock className="h-3 w-3" />{String(v)}</span> },
+              { key: "signal", header: "Signal", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+              { key: "asset", header: "Asset", render: (v) => <span className="text-xs">{String(v)}</span> },
+              { key: "classification", header: "Type", render: (v) => <Badge variant="outline" className={`text-[10px] capitalize ${classificationBadge[v as string]}`}>{String(v)}</Badge> },
+              {
+                key: "_baseline",
+                header: "Baseline → Observed",
+                render: (_v, an) => (
+                  <span className="text-xs whitespace-nowrap">
+                    <span className="text-muted-foreground">{(an as Anomaly).baseline}</span>
+                    <span className="mx-1.5 text-muted-foreground">→</span>
+                    <span className="font-semibold text-foreground">{(an as Anomaly).observed}</span>
+                  </span>
+                ),
+              },
+              { key: "zScore", header: "Z-score", render: (v) => <span className="text-xs font-mono font-semibold">{(v as number).toFixed(1)}σ</span> },
+              {
+                key: "confidence",
+                header: "Confidence",
+                minWidth: 120,
+                render: (v) => (
+                  <div className="flex items-center gap-2 min-w-[100px]">
+                    <Progress value={(v as number) * 100} className="h-1.5 flex-1" />
+                    <span className="text-[11px] font-semibold tabular-nums">{Math.round((v as number) * 100)}%</span>
+                  </div>
+                ),
+              },
+              { key: "detectedBy", header: "Agent", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
+            ] as ColumnDef<Anomaly>[]}
+            rows={anomalies}
+            getRowKey={(an) => an.id}
+            emptyMessage="No anomalies detected."
+          />
           </>
           )}
         </TabsContent>
@@ -853,48 +843,29 @@ export default function VectorAI() {
               <h3 className="font-semibold text-sm flex items-center gap-2"><Layers className="h-4 w-4 text-primary" /> Closed-loop execution log</h3>
               <p className="text-xs text-muted-foreground mt-0.5">Real-time audit trail showing Detection → Action → Resolution → Logged</p>
             </div>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/40">
-                    <TableHead className="text-[10px] uppercase tracking-wide">Time</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Agent</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Trigger</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Action</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Asset</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Stage</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Outcome</TableHead>
-                    <TableHead className="text-[10px] uppercase tracking-wide">Impact</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loops.map((l) => (
-                    <TableRow key={l.id} className="hover:bg-muted/40">
-                      <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{l.ts}</TableCell>
-                      <TableCell className="text-xs font-medium">{l.agent}</TableCell>
-                      <TableCell className="text-xs">{l.trigger}</TableCell>
-                      <TableCell className="text-xs">{l.action}</TableCell>
-                      <TableCell className="text-xs">{l.asset}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px] capitalize bg-accent/10 text-accent border-accent/30">{l.stage}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {l.outcome === "success" && (
-                          <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/30">success</Badge>
-                        )}
-                        {l.outcome === "pending" && (
-                          <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">pending</Badge>
-                        )}
-                        {l.outcome === "failed" && (
-                          <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/30">failed</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">{l.impact}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <DataTable<LoopAction>
+              columns={[
+                { key: "ts", header: "Time", render: (v) => <span className="text-xs text-muted-foreground whitespace-nowrap">{String(v)}</span> },
+                { key: "agent", header: "Agent", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+                { key: "trigger", header: "Trigger", render: (v) => <span className="text-xs">{String(v)}</span> },
+                { key: "action", header: "Action", render: (v) => <span className="text-xs">{String(v)}</span> },
+                { key: "asset", header: "Asset", render: (v) => <span className="text-xs">{String(v)}</span> },
+                { key: "stage", header: "Stage", render: (v) => <Badge variant="outline" className="text-[10px] capitalize bg-accent/10 text-accent border-accent/30">{String(v)}</Badge> },
+                {
+                  key: "outcome",
+                  header: "Outcome",
+                  render: (v) => {
+                    if (v === "success") return <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/30">success</Badge>;
+                    if (v === "pending") return <Badge variant="outline" className="text-[10px] bg-warning/10 text-warning border-warning/30">pending</Badge>;
+                    return <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/30">failed</Badge>;
+                  },
+                },
+                { key: "impact", header: "Impact", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
+              ] as ColumnDef<LoopAction>[]}
+              rows={loops}
+              getRowKey={(l) => l.id}
+              emptyMessage="No execution log entries."
+            />
           </Card>
           </>
           )}

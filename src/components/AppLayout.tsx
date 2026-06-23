@@ -1,4 +1,4 @@
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { AppHeader } from "@/components/AppHeader";
 import { VectorAIAssistant } from "@/components/VectorAIAssistant";
@@ -8,6 +8,8 @@ import { DatasetProvider } from "@/contexts/DatasetContext";
 
 function LayoutInner() {
   const { collapsed } = useSidebarState();
+  const location = useLocation();
+  const isAdminRoute = location.pathname.startsWith("/admin");
 
   return (
     <div className="flex min-h-screen w-full">
@@ -21,7 +23,7 @@ function LayoutInner() {
           <Outlet />
         </main>
       </div>
-      <VectorAIAssistant />
+      {!isAdminRoute && <VectorAIAssistant />}
     </div>
   );
 }

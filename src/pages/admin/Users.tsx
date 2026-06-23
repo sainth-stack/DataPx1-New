@@ -4,9 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -185,70 +183,46 @@ export default function Users() {
         </Button>
       </div>
 
-      <Card className="rounded-card overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-16">S.No</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Last Active</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="w-28">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Loading users…
-                </TableCell>
-              </TableRow>
-            ) : filtered.map((u, i) => (
-              <TableRow key={u.id} className="hover:bg-muted/20">
-                <TableCell>{i + 1}</TableCell>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold shrink-0">
-                      {u.name.split(" ").map((n) => n[0]).join("")}
-                    </div>
-                    {u.name}
-                  </div>
-                </TableCell>
-                <TableCell>{u.email}</TableCell>
-                <TableCell className="text-muted-foreground">{u.role}</TableCell>
-                <TableCell className="text-muted-foreground">{u.lastActive}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={statusColor[u.status]}>{u.status}</Badge>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(u, e)}>
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-destructive"
-                      onClick={(e) => { e.stopPropagation(); setDeleteConfirm(u.id); }}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No users found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <DataTable<UserRecord>
+        columns={[
+          { key: "_no", header: "S.No", width: 64, render: (_v, _r, i) => i + 1 },
+          {
+            key: "name",
+            header: "Name",
+            render: (v, u) => (
+              <div className="flex items-center gap-2">
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold shrink-0">
+                  {(u as UserRecord).name.split(" ").map((n: string) => n[0]).join("")}
+                </div>
+                <span className="font-medium">{String(v)}</span>
+              </div>
+            ),
+          },
+          { key: "email", header: "Email" },
+          { key: "role", header: "Title", render: (v) => <span className="text-muted-foreground">{String(v ?? "")}</span> },
+          { key: "lastActive", header: "Last Active", render: (v) => <span className="text-muted-foreground">{String(v ?? "")}</span> },
+          {
+            key: "status",
+            header: "Status",
+            render: (v) => <Badge variant="outline" className={statusColor[v as UserRecord["status"]]}>{String(v)}</Badge>,
+          },
+          {
+            key: "_actions",
+            header: "",
+            width: 110,
+            render: (_v, u) => (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(u as UserRecord, e)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm((u as UserRecord).id); }}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ),
+          },
+        ] as ColumnDef<UserRecord>[]}
+        rows={filtered}
+        loading={loading}
+        emptyMessage="No users found."
+        getRowKey={(u) => u.id}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">

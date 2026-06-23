@@ -3,9 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -137,38 +135,28 @@ export default function Organizations() {
         </Button>
       </div>
 
-      <Card className="rounded-card overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-20">S.No</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Tenant</TableHead>
-              <TableHead className="w-32">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading organizations…</TableCell></TableRow>
-            ) : filtered.map((o, i) => (
-              <TableRow key={o.id} className="hover:bg-muted/20">
-                <TableCell>{i + 1}</TableCell>
-                <TableCell className="font-medium">{o.name}</TableCell>
-                <TableCell>{o.tenantName}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(o, e)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(o.id); }}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No organizations found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+      <DataTable<OrganizationRecord>
+        columns={[
+          { key: "_no", header: "S.No", width: 80, render: (_v, _r, i) => i + 1 },
+          { key: "name", header: "Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+          { key: "tenantName", header: "Tenant" },
+          {
+            key: "_actions",
+            header: "",
+            width: 120,
+            render: (_v, o) => (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(o, e)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(o.id); }}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ),
+          },
+        ] as ColumnDef<OrganizationRecord>[]}
+        rows={filtered}
+        loading={loading}
+        emptyMessage="No organizations found."
+        getRowKey={(o) => o.id}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">

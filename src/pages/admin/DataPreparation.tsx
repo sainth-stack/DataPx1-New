@@ -10,9 +10,7 @@ import { Separator } from "@/components/ui/separator";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   FlaskConical, Download, Database, FileSpreadsheet, RefreshCw, Send,
   Sparkles, Settings2, Wand2, CheckCircle2, Loader2, X,
@@ -835,39 +833,27 @@ export default function DataPreparation() {
                   </div>
                 </div>
 
-                <div className="overflow-auto rounded-md border max-h-96 relative min-h-[120px]">
+                <div className="relative min-h-[120px]">
                   {loadingPreview && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10">
+                    <div className="absolute inset-0 flex items-center justify-center bg-background/80 z-10 rounded-md">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
                     </div>
                   )}
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40">
-                        {tableColumns.map((c) => (
-                          <TableHead key={c} className="text-[10px] whitespace-nowrap">{c}</TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {previewRows.map((row, i) => (
-                        <TableRow key={i}>
-                          {(Array.isArray(row) ? row : []).map((cell, j) => (
-                            <TableCell key={j} className="text-[11px] whitespace-nowrap font-mono">
-                              {cell == null ? "" : String(cell)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      ))}
-                      {!loadingPreview && previewRows.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={Math.max(tableColumns.length, 1)} className="text-center py-6 text-muted-foreground text-xs">
-                            Preview unavailable — use Export to download full file.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={tableColumns.map((c, j) => ({
+                      key: String(j),
+                      header: <span className="text-[10px] whitespace-nowrap">{c}</span>,
+                      render: (_v, row) => {
+                        const arr = Array.isArray(row) ? row : [];
+                        const cell = arr[j];
+                        return <span className="text-[11px] whitespace-nowrap font-mono">{cell == null ? "" : String(cell)}</span>;
+                      },
+                    }) as ColumnDef)}
+                    rows={previewRows.map((row) => Array.isArray(row) ? Object.fromEntries(row.map((v, j) => [String(j), v])) : {})}
+                    emptyMessage="Preview unavailable — use Export to download full file."
+                    getRowKey={(_r, i) => i}
+                    maxHeight={384}
+                  />
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-2">Showing up to 10 rows from server registry.</p>
               </Card>
@@ -905,30 +891,23 @@ export default function DataPreparation() {
               ) : previousExports.length === 0 ? (
                 <p className="text-xs text-muted-foreground py-4 text-center">No server exports yet.</p>
               ) : (
-                <div className="overflow-auto rounded-md border max-h-48">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/40">
-                        <TableHead className="text-[10px]">Dataset</TableHead>
-                        <TableHead className="text-[10px] text-right">Rows</TableHead>
-                        <TableHead className="text-[10px] text-right">Action</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {previousExports.map((item) => (
-                        <TableRow key={item.registry_id}>
-                          <TableCell className="text-xs font-mono">{item.display_name}</TableCell>
-                          <TableCell className="text-xs text-right">{item.row_count.toLocaleString()}</TableCell>
-                          <TableCell className="text-right">
-                            <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void handleOpenExport(item)}>
-                              Open
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
+                <DataTable
+                  columns={[
+                    { key: "display_name", header: "Dataset", render: (v) => <span className="text-xs font-mono">{String(v)}</span> },
+                    { key: "row_count", header: "Rows", align: "right", render: (v) => <span className="text-xs">{(v as number).toLocaleString()}</span> },
+                    {
+                      key: "_action",
+                      header: "",
+                      align: "right",
+                      render: (_v, item) => (
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => void handleOpenExport(item as ServerDataset)}>Open</Button>
+                      ),
+                    },
+                  ] as ColumnDef[]}
+                  rows={previousExports}
+                  getRowKey={(item) => (item as ServerDataset).registry_id}
+                  maxHeight={192}
+                />
               )}
             </Card>
           </TabsContent>

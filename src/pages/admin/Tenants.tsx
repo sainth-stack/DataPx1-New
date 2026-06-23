@@ -4,14 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, ChevronUp, ChevronDown, Search } from "lucide-react";
+import { Plus, Pencil, Trash2, Search } from "lucide-react";
 import { toast } from "sonner";
 import { adminApi, type TenantRecord } from "@/lib/api/admin";
 
@@ -70,13 +68,6 @@ export default function Tenants() {
     else { setSortKey(key); setSortAsc(true); }
     setPage(1);
   };
-
-  const SortIcon = ({ col }: { col: SortKey }) => (
-    <span className="inline-flex flex-col ml-1 opacity-40">
-      <ChevronUp className={`h-3 w-3 ${sortKey === col && sortAsc ? "opacity-100 text-accent" : ""}`} />
-      <ChevronDown className={`h-3 w-3 -mt-1 ${sortKey === col && !sortAsc ? "opacity-100 text-accent" : ""}`} />
-    </span>
-  );
 
   const openAdd = () => {
     setForm(emptyForm);
@@ -143,47 +134,35 @@ export default function Tenants() {
         </Button>
       </div>
 
-      <Card className="rounded-card overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead className="w-20 cursor-pointer select-none" onClick={() => toggleSort("id")}>S.No <SortIcon col="id" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("name")}>Name <SortIcon col="name" /></TableHead>
-              <TableHead className="cursor-pointer select-none" onClick={() => toggleSort("type")}>Type <SortIcon col="type" /></TableHead>
-              <TableHead className="w-32">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Loading tenants…</TableCell></TableRow>
-            ) : filtered.map((t, i) => (
-              <TableRow key={t.id} className="hover:bg-muted/20">
-                <TableCell>{rangeStart + i}</TableCell>
-                <TableCell className="font-medium">{t.name}</TableCell>
-                <TableCell><Badge variant="outline" className="bg-muted/50">{t.type}</Badge></TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-1">
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(t, e)}><Pencil className="h-4 w-4" /></Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm(t.id); }}><Trash2 className="h-4 w-4" /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-            {!loading && filtered.length === 0 && (
-              <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">No tenants found.</TableCell></TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <div className="flex items-center justify-end gap-4 border-t px-4 py-3 text-sm text-muted-foreground">
-          <span>{rangeStart}-{rangeEnd} of {totalRecords} items</span>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page <= 1} onClick={() => setPage(page - 1)}>‹</Button>
-            <Input value={page} className="h-8 w-10 text-center rounded-input" readOnly />
-            <Button variant="outline" size="icon" className="h-8 w-8" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>›</Button>
-          </div>
-          <span>{perPage} / page</span>
-        </div>
-      </Card>
+      <DataTable<TenantRecord>
+        columns={[
+          { key: "_no", header: "S.No", width: 80, sortable: true, render: (_v, _r, i) => rangeStart + i },
+          { key: "name", header: "Name", sortable: true, render: (v) => <span className="font-medium">{String(v)}</span> },
+          { key: "type", header: "Type", sortable: true, render: (v) => <Badge variant="outline" className="bg-muted/50">{String(v)}</Badge> },
+          {
+            key: "_actions",
+            header: "",
+            width: 120,
+            render: (_v, t) => (
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-accent" onClick={(e) => openEdit(t as TenantRecord, e)}><Pencil className="h-4 w-4" /></Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={(e) => { e.stopPropagation(); setDeleteConfirm((t as TenantRecord).id); }}><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ),
+          },
+        ] as ColumnDef<TenantRecord>[]}
+        rows={filtered}
+        loading={loading}
+        emptyMessage="No tenants found."
+        getRowKey={(t) => t.id}
+        pagination={{
+          page: page - 1,
+          pageSize: perPage,
+          total: totalRecords,
+          onPageChange: (p) => setPage(p + 1),
+          pageSizeOptions: [10],
+        }}
+      />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg">

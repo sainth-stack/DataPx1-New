@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Sigma, Database, BarChart3, GitBranch, AlertCircle, CheckCircle2, Lightbulb, Info, Loader2 } from "lucide-react";
 import {
@@ -293,37 +293,22 @@ export default function DataProcessing() {
               </div>
             </div>
             {rawRows.length > 0 ? (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/30">
-                      {rawColumns.map((col) => (
-                        <TableHead key={col} className="text-[11px] uppercase tracking-wide">
-                          <div className="flex flex-col gap-1">
-                            <span>{col}</span>
-                            {rawPreview?.columns[col] && (
-                              <Badge variant="outline" className="text-[10px] w-fit font-normal">
-                                {rawPreview.columns[col]}
-                              </Badge>
-                            )}
-                          </div>
-                        </TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {rawRows.map((row, i) => (
-                      <TableRow key={i}>
-                        {row.map((cell, j) => (
-                          <TableCell key={j}>
-                            {formatCell(cell, rawPreview?.columns[rawColumns[j]])}
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <DataTable
+                columns={rawColumns.map((col, j) => ({
+                  key: String(j),
+                  header: (
+                    <div className="flex flex-col gap-1">
+                      <span>{col}</span>
+                      {rawPreview?.columns[col] && (
+                        <Badge variant="outline" className="text-[10px] w-fit font-normal">{rawPreview.columns[col]}</Badge>
+                      )}
+                    </div>
+                  ),
+                  render: (_v, row) => formatCell((row as unknown[])[j], rawPreview?.columns[col]),
+                }) as ColumnDef)}
+                rows={rawRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
+                getRowKey={(_r, i) => i}
+              />
             ) : (
               <div className="h-[200px] flex items-center justify-center text-sm text-muted-foreground">
                 No raw data available
@@ -351,39 +336,28 @@ export default function DataProcessing() {
         <TabsContent value="stats" className="space-y-4 mt-4">
           <Card className="rounded-card p-5">
             <h2 className="text-sm font-semibold mb-3">Descriptive Statistics</h2>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/30">
-                  <TableHead>Feature</TableHead>
-                  <TableHead className="text-right">Mean</TableHead>
-                  <TableHead className="text-right">Median</TableHead>
-                  <TableHead className="text-right">Std Dev</TableHead>
-                  <TableHead className="text-right">Min</TableHead>
-                  <TableHead className="text-right">Max</TableHead>
-                  <TableHead className="text-right">Missing %</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {descriptiveStats.map((s) => (
-                  <TableRow key={s.feature}>
-                    <TableCell className="font-medium font-mono text-xs">{s.feature}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{formatStat(s.mean)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{formatStat(s.median)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{formatStat(s.std)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{formatStat(s.min)}</TableCell>
-                    <TableCell className="text-right font-mono text-xs">{formatStat(s.max)}</TableCell>
-                    <TableCell className="text-right">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] ${s.missing_pct > 1 ? "bg-warning/10 text-warning border-warning/20" : "bg-success/10 text-success border-success/20"}`}
-                      >
-                        {s.missing_pct.toFixed(1)}%
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataTable
+              columns={[
+                { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
+                { key: "mean", header: "Mean", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
+                { key: "median", header: "Median", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
+                { key: "std", header: "Std Dev", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
+                { key: "min", header: "Min", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
+                { key: "max", header: "Max", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
+                {
+                  key: "missing_pct",
+                  header: "Missing %",
+                  align: "right",
+                  render: (v) => (
+                    <Badge variant="outline" className={`text-[10px] ${(v as number) > 1 ? "bg-warning/10 text-warning border-warning/20" : "bg-success/10 text-success border-success/20"}`}>
+                      {(v as number).toFixed(1)}%
+                    </Badge>
+                  ),
+                },
+              ] as ColumnDef[]}
+              rows={descriptiveStats}
+              getRowKey={(s) => (s as { feature: string }).feature}
+            />
           </Card>
 
           {features.numeric_features.length > 0 && (
@@ -586,57 +560,42 @@ export default function DataProcessing() {
                       </TooltipContent>
                     </UITooltip>
                   </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-muted/30">
-                        <TableHead>Feature</TableHead>
-                        <TableHead className="text-right">Importance</TableHead>
-                        <TableHead className="text-right">Pearson Correlation</TableHead>
-                        <TableHead>Strength & Impact</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {featureAnalysis.features.map((f) => {
-                        const negative = f.correlation < 0;
-                        const strengthLabel = getCorrelationStrength(f.correlation);
-                        return (
-                          <TableRow key={f.feature}>
-                            <TableCell className="font-medium font-mono text-xs">{f.feature}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">{f.importance.toFixed(4)}</TableCell>
-                            <TableCell className="text-right font-mono text-xs">{f.correlation.toFixed(4)}</TableCell>
-                            <TableCell className="relative">
-                              <UITooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    tabIndex={0}
-                                    className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                                  >
-                                    <Badge
-                                      variant="outline"
-                                      className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(f.correlation))}
-                                    >
-                                      {strengthLabel} {negative ? "▼" : "▲"}
-                                    </Badge>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs z-[100]">
-                                  <p className="text-xs font-semibold">
-                                    {strengthLabel} {negative ? "Negative" : "Positive"} Correlation
-                                  </p>
-                                  <p className="text-[11px] text-muted-foreground mt-1">
-                                    {f.feature} has a {strengthLabel.toLowerCase()} {negative ? "negative" : "positive"} relationship with the target.
-                                    {negative
-                                      ? " When this feature increases, the target tends to decrease."
-                                      : " When this feature increases, the target tends to increase."}
-                                  </p>
-                                </TooltipContent>
-                              </UITooltip>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                  <DataTable
+                    columns={[
+                      { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
+                      { key: "importance", header: "Importance", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
+                      { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
+                      {
+                        key: "_strength",
+                        header: "Strength & Impact",
+                        render: (_v, f) => {
+                          const feat = f as { feature: string; correlation: number };
+                          const negative = feat.correlation < 0;
+                          const strengthLabel = getCorrelationStrength(feat.correlation);
+                          return (
+                            <UITooltip>
+                              <TooltipTrigger asChild>
+                                <span tabIndex={0} className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                  <Badge variant="outline" className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(feat.correlation))}>
+                                    {strengthLabel} {negative ? "▼" : "▲"}
+                                  </Badge>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs z-[100]">
+                                <p className="text-xs font-semibold">{strengthLabel} {negative ? "Negative" : "Positive"} Correlation</p>
+                                <p className="text-[11px] text-muted-foreground mt-1">
+                                  {feat.feature} has a {strengthLabel.toLowerCase()} {negative ? "negative" : "positive"} relationship with the target.
+                                  {negative ? " When this feature increases, the target tends to decrease." : " When this feature increases, the target tends to increase."}
+                                </p>
+                              </TooltipContent>
+                            </UITooltip>
+                          );
+                        },
+                      },
+                    ] as ColumnDef[]}
+                    rows={featureAnalysis.features}
+                    getRowKey={(f) => (f as { feature: string }).feature}
+                  />
                   {featureAnalysis.description && (
                     <div className="mt-3 rounded-lg border border-accent/20 bg-accent/5 p-3">
                       <div className="flex items-start gap-2">

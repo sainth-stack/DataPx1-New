@@ -10,9 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   Sparkles, ArrowLeft, ArrowRight, Play, TrendingUp, TrendingDown, Minus,
@@ -679,48 +677,29 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                   </Tooltip>
                 </div>
                 
-                <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead className="text-xs font-semibold">Feature</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Importance</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Pearson Correlation</TableHead>
-                    <TableHead className="text-xs font-semibold text-right">Strength & Impact</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {featureImportance.map((item) => {
-                    const absCorr = Math.abs(item.correlation);
-                    let strengthLevel: string;
-                    let strengthDesc: string;
-                    
-                    if (absCorr >= 0.5) {
-                      strengthLevel = "Strong";
-                      strengthDesc = "Strong correlation indicates this feature has significant predictive power for the target variable. Changes in this feature substantially affect predictions.";
-                    } else if (absCorr >= 0.3) {
-                      strengthLevel = "Moderate";
-                      strengthDesc = "Moderate correlation shows this feature has meaningful but not dominant influence on predictions. It contributes to model accuracy alongside other features.";
-                    } else {
-                      strengthLevel = "Weak";
-                      strengthDesc = "Weak correlation suggests limited direct linear relationship with the target. However, this feature may still contribute through non-linear patterns or interactions with other variables.";
-                    }
-
-                    return (
-                      <TableRow key={item.feature} className="hover:bg-muted/40">
-                        <TableCell className="text-xs font-medium font-mono">{item.feature}</TableCell>
-                        <TableCell className="text-xs text-right font-semibold">{item.importance.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs text-right font-mono">{item.correlation.toFixed(2)}</TableCell>
-                        <TableCell className="text-xs text-right relative">
+                <DataTable
+                  columns={[
+                    { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
+                    { key: "importance", header: "Importance", align: "right", render: (v) => <span className="text-xs font-semibold">{(v as number).toFixed(2)}</span> },
+                    { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(2)}</span> },
+                    {
+                      key: "_strength",
+                      header: "Strength & Impact",
+                      align: "right",
+                      render: (_v, item) => {
+                        const it = item as { feature: string; importance: number; correlation: number };
+                        const absCorr = Math.abs(it.correlation);
+                        const strengthLevel = absCorr >= 0.5 ? "Strong" : absCorr >= 0.3 ? "Moderate" : "Weak";
+                        const strengthDesc = absCorr >= 0.5
+                          ? "Strong correlation indicates this feature has significant predictive power for the target variable."
+                          : absCorr >= 0.3
+                          ? "Moderate correlation shows this feature has meaningful but not dominant influence on predictions."
+                          : "Weak correlation suggests limited direct linear relationship with the target.";
+                        return (
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <span
-                                tabIndex={0}
-                                className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                              >
-                                <Badge
-                                  variant="outline"
-                                  className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(item.correlation))}
-                                >
+                              <span tabIndex={0} className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                                <Badge variant="outline" className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(it.correlation))}>
                                   {strengthLevel} ▼
                                 </Badge>
                               </span>
@@ -730,19 +709,20 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                                 <p className="text-xs font-semibold">{strengthLevel} Correlation</p>
                                 <p className="text-xs text-muted-foreground">{strengthDesc}</p>
                                 <div className="pt-2 border-t space-y-1">
-                                  <p className="text-xs"><strong>Importance:</strong> {(item.importance * 100).toFixed(0)}% contribution to model</p>
-                                  <p className="text-xs"><strong>Correlation:</strong> {item.correlation > 0 ? 'Positive' : 'Negative'} relationship ({item.correlation.toFixed(3)})</p>
-                                  <p className="text-xs"><strong>Impact:</strong> {absCorr >= 0.5 ? 'High' : absCorr >= 0.3 ? 'Medium' : 'Low'} predictive power</p>
+                                  <p className="text-xs"><strong>Importance:</strong> {(it.importance * 100).toFixed(0)}% contribution to model</p>
+                                  <p className="text-xs"><strong>Correlation:</strong> {it.correlation > 0 ? "Positive" : "Negative"} ({it.correlation.toFixed(3)})</p>
+                                  <p className="text-xs"><strong>Impact:</strong> {absCorr >= 0.5 ? "High" : absCorr >= 0.3 ? "Medium" : "Low"} predictive power</p>
                                 </div>
                               </div>
                             </TooltipContent>
                           </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        );
+                      },
+                    },
+                  ] as ColumnDef[]}
+                  rows={featureImportance}
+                  getRowKey={(item) => (item as { feature: string }).feature}
+                />
               </TooltipProvider>
             </Card>
 
@@ -1064,30 +1044,15 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                 </div>
 
                 {outlierReport.rows.length > 0 && (
-                  <Card className="rounded-card border overflow-hidden">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/30">
-                            {Object.keys(outlierReport.rows[0]).map((col) => (
-                              <TableHead key={col} className="text-xs">{col.replace(/_/g, " ")}</TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {outlierReport.rows.slice(0, 25).map((row, i) => (
-                            <TableRow key={i}>
-                              {Object.keys(outlierReport.rows[0]).map((col) => (
-                                <TableCell key={col} className="text-xs font-mono">
-                                  {String(row[col] ?? "")}
-                                </TableCell>
-                              ))}
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </Card>
+                  <DataTable
+                    columns={Object.keys(outlierReport.rows[0]).map((col) => ({
+                      key: col,
+                      header: col.replace(/_/g, " "),
+                      render: (v) => <span className="text-xs font-mono">{String(v ?? "")}</span>,
+                    }) as ColumnDef)}
+                    rows={outlierReport.rows.slice(0, 25)}
+                    getRowKey={(_r, i) => i}
+                  />
                 )}
               </>
             )}
@@ -1256,16 +1221,15 @@ function AiPanel() {
                 <div className="max-w-[85%] space-y-3">
                   <div className="rounded-card bg-card border px-4 py-3 text-sm leading-relaxed">{msg.content}</div>
                   {resp?.type === "table" && resp.tableHeaders && resp.tableRows && (
-                    <Card className="rounded-card border overflow-hidden">
-                      <Table>
-                        <TableHeader><TableRow>{resp.tableHeaders.map((h) => <TableHead key={h} className="text-xs font-semibold">{h}</TableHead>)}</TableRow></TableHeader>
-                        <TableBody>
-                          {resp.tableRows.map((row, ri) => (
-                            <TableRow key={ri}>{row.map((cell, ci) => <TableCell key={ci} className="text-xs">{cell}</TableCell>)}</TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </Card>
+                    <DataTable
+                      columns={resp.tableHeaders.map((h, j) => ({
+                        key: String(j),
+                        header: h,
+                        render: (_v, row) => <span className="text-xs">{String((row as unknown[])[j] ?? "")}</span>,
+                      }) as ColumnDef)}
+                      rows={resp.tableRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
+                      getRowKey={(_r, i) => i}
+                    />
                   )}
                   {resp?.type === "chart" && resp.chartData && (
                     <Card className="rounded-card border p-4">

@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Cpu, Cog, Search, Activity, Thermometer, Gauge, Wrench, AlertTriangle, Zap, Clock, Info, Loader2,
 } from "lucide-react";
@@ -340,64 +340,69 @@ function FleetView({
         <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
           <Cog className="h-4 w-4 text-accent" /> Fleet Roster ({filtered.length})
         </h3>
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead>Machine</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">OEE</TableHead>
-              <TableHead className="text-right">Risk</TableHead>
-              <TableHead>Next PM</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((m) => {
-              const riskScore = m.risk ?? m.riskScore ?? 0;
-              return (
-                <TableRow key={m.machine_id} className="cursor-pointer hover:bg-muted/30" onClick={() => onSelect(m.machine_id)}>
-                  <TableCell className="font-medium">
-                    <div className="flex flex-col">
-                      <span className="text-sm">{m.equipment_name}</span>
-                      <span className="text-[10px] text-muted-foreground">{m.display_id} • {m.location || "—"}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{m.type}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={`text-[10px] ${statusColor[m.status]}`}>{m.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono text-xs">{m.oee}%</TableCell>
-                  <TableCell className="text-right">
-                    <TooltipProvider>
-                      <UITooltip>
-                        <TooltipTrigger asChild>
-                          <Badge variant="outline" className={`text-[10px] cursor-help ${
-                            riskScore >= 60 ? "bg-destructive/10 text-destructive border-destructive/20" :
-                            riskScore >= 30 ? "bg-warning/10 text-warning border-warning/20" :
-                            "bg-success/10 text-success border-success/20"
-                          }`}>
-                            {riskScore}
-                          </Badge>
-                        </TooltipTrigger>
-                        <TooltipContent className="max-w-xs">
-                          <p className="text-xs font-semibold">{getRiskLevel(riskScore)} Risk</p>
-                          <p className="text-[11px] text-muted-foreground mt-1">{getRiskExplanation(riskScore)}</p>
-                        </TooltipContent>
-                      </UITooltip>
-                    </TooltipProvider>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{m.next_pm}</TableCell>
-                  <TableCell className="text-right">
-                    <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onSelect(m.machine_id); }}>
-                      Inspect →
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <DataTable
+          columns={[
+            {
+              key: "equipment_name",
+              header: "Machine",
+              render: (_v, m) => (
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium">{(m as FleetRosterItem).equipment_name}</span>
+                  <span className="text-[10px] text-muted-foreground">{(m as FleetRosterItem).display_id} • {(m as FleetRosterItem).location || "—"}</span>
+                </div>
+              ),
+            },
+            { key: "type", header: "Type", render: (v) => <span className="text-muted-foreground text-xs">{String(v)}</span> },
+            {
+              key: "status",
+              header: "Status",
+              render: (v) => <Badge variant="outline" className={`text-[10px] ${statusColor[v as FleetRosterItem["status"]]}`}>{String(v)}</Badge>,
+            },
+            { key: "oee", header: "OEE", align: "right", render: (v) => <span className="font-mono text-xs">{String(v)}%</span> },
+            {
+              key: "risk",
+              header: "Risk",
+              align: "right",
+              render: (_v, m) => {
+                const riskScore = (m as FleetRosterItem).risk ?? (m as FleetRosterItem).riskScore ?? 0;
+                return (
+                  <TooltipProvider>
+                    <UITooltip>
+                      <TooltipTrigger asChild>
+                        <Badge variant="outline" className={`text-[10px] cursor-help ${
+                          riskScore >= 60 ? "bg-destructive/10 text-destructive border-destructive/20" :
+                          riskScore >= 30 ? "bg-warning/10 text-warning border-warning/20" :
+                          "bg-success/10 text-success border-success/20"
+                        }`}>
+                          {riskScore}
+                        </Badge>
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-xs font-semibold">{getRiskLevel(riskScore)} Risk</p>
+                        <p className="text-[11px] text-muted-foreground mt-1">{getRiskExplanation(riskScore)}</p>
+                      </TooltipContent>
+                    </UITooltip>
+                  </TooltipProvider>
+                );
+              },
+            },
+            { key: "next_pm", header: "Next PM", render: (v) => <span className="text-xs text-muted-foreground">{String(v ?? "—")}</span> },
+            {
+              key: "_actions",
+              header: "",
+              align: "right",
+              render: (_v, m) => (
+                <Button size="sm" variant="ghost" onClick={(e) => { e.stopPropagation(); onSelect((m as FleetRosterItem).machine_id); }}>
+                  Inspect →
+                </Button>
+              ),
+            },
+          ] as ColumnDef<FleetRosterItem>[]}
+          rows={filtered}
+          getRowKey={(m) => m.machine_id}
+          onRowClick={(m) => onSelect(m.machine_id)}
+          emptyMessage="No machines in fleet."
+        />
       </Card>
     </div>
   );

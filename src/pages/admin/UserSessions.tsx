@@ -3,9 +3,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
@@ -131,75 +129,69 @@ export default function UserSessions() {
         </div>
       </div>
 
-      <Card className="rounded-card overflow-hidden border">
-        <Table>
-          <TableHeader>
-            <TableRow className="bg-muted/30">
-              <TableHead>User</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Login</TableHead>
-              <TableHead>Last Active</TableHead>
-              <TableHead>Device</TableHead>
-              <TableHead className="w-32 text-right">Action</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  Loading sessions…
-                </TableCell>
-              </TableRow>
-            ) : filtered.map((s) => {
-              const isSelf = s.id === sessionId;
+      <DataTable<SessionRecord>
+        columns={[
+          {
+            key: "userName",
+            header: "User",
+            render: (v, s) => {
+              const isSelf = (s as SessionRecord).id === sessionId;
               return (
-                <TableRow key={s.id} className="hover:bg-muted/20">
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold shrink-0">
-                        {initials(s.userName)}
-                      </div>
-                      <span>{s.userName}</span>
-                      {isSelf && (
-                        <Badge variant="outline" className="text-[10px] bg-accent/10 text-accent border-accent/30">
-                          You
-                        </Badge>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">{s.userEmail}</TableCell>
-                  <TableCell className="text-muted-foreground">{s.orgName}</TableCell>
-                  <TableCell className="text-xs font-mono" title={formatAbsolute(s.loginTime)}>
-                    {formatRelative(s.loginTime)}
-                  </TableCell>
-                  <TableCell className="text-xs font-mono" title={formatAbsolute(s.loginTime)}>
-                    {formatRelative(s.loginTime)}
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{shortDevice(s.deviceInfo)}</TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="rounded-button text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
-                      onClick={() => setConfirm(s)}
-                    >
-                      <PowerOff className="mr-1.5 h-3.5 w-3.5" /> Terminate
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-xs font-semibold shrink-0">
+                    {initials(String(v))}
+                  </div>
+                  <span className="font-medium">{String(v)}</span>
+                  {isSelf && (
+                    <Badge variant="outline" className="text-[10px] bg-accent/10 text-accent border-accent/30">You</Badge>
+                  )}
+                </div>
               );
-            })}
-            {!loading && filtered.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                  No active sessions.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+            },
+          },
+          { key: "userEmail", header: "Email", render: (v) => <span className="text-muted-foreground">{String(v)}</span> },
+          { key: "orgName", header: "Title", render: (v) => <span className="text-muted-foreground">{String(v ?? "")}</span> },
+          {
+            key: "loginTime",
+            header: "Login",
+            render: (v) => (
+              <span className="text-xs font-mono" title={formatAbsolute(String(v))}>
+                {formatRelative(String(v))}
+              </span>
+            ),
+          },
+          {
+            key: "_lastActive",
+            header: "Last Active",
+            render: (_v, s) => (
+              <span className="text-xs font-mono" title={formatAbsolute((s as SessionRecord).loginTime)}>
+                {formatRelative((s as SessionRecord).loginTime)}
+              </span>
+            ),
+          },
+          { key: "deviceInfo", header: "Device", render: (v) => <span className="text-xs text-muted-foreground">{shortDevice(String(v ?? ""))}</span> },
+          {
+            key: "_action",
+            header: "",
+            width: 130,
+            align: "right",
+            render: (_v, s) => (
+              <Button
+                variant="outline"
+                size="sm"
+                className="rounded-button text-destructive border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
+                onClick={() => setConfirm(s as SessionRecord)}
+              >
+                <PowerOff className="mr-1.5 h-3.5 w-3.5" /> Terminate
+              </Button>
+            ),
+          },
+        ] as ColumnDef<SessionRecord>[]}
+        rows={filtered}
+        loading={loading}
+        emptyMessage="No active sessions."
+        getRowKey={(s) => s.id}
+      />
 
       <Dialog open={!!confirm} onOpenChange={() => setConfirm(null)}>
         <DialogContent className="sm:max-w-sm">

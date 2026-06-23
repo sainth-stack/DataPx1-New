@@ -45,7 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataTable, type ColumnDef } from "@/components/DataTable";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
@@ -412,28 +412,15 @@ function TelemetryTable({
 }) {
   if (!rows.length) return null;
   return (
-    <Table>
-      <TableHeader className="sticky top-0 bg-background z-10">
-        <TableRow>
-          {columns.map((col) => (
-            <TableHead key={col} className="whitespace-nowrap text-xs">
-              {col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {rows.map((row, i) => (
-          <TableRow key={i}>
-            {columns.map((col) => (
-              <TableCell key={col} className={cn("whitespace-nowrap", compact && "text-xs py-1")}>
-                {formatCell(row[col], compact)}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <DataTable
+      columns={columns.map((col) => ({
+        key: col,
+        header: <span className="whitespace-nowrap text-xs">{col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>,
+        render: (v) => <span className={cn("whitespace-nowrap", compact && "text-xs")}>{formatCell(v, compact) as React.ReactNode}</span>,
+      }) as ColumnDef)}
+      rows={rows}
+      getRowKey={(_r, i) => i}
+    />
   );
 }
 
@@ -1584,38 +1571,28 @@ export default function DigitalTwin() {
                   </Tooltip>
                 </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {catalogue.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{item.type}</Badge></TableCell>
-                      <TableCell className="text-sm text-muted-foreground">{item.description}</TableCell>
-                      <TableCell><Badge variant="outline" className={cn("text-xs", statusClass(item.status))}>{item.status}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => validateItem(item.id, "catalogue")} disabled={item.status === "Validated"}>
-                            <CheckCircle2 className="h-4 w-4 text-success" />
-                          </Button>
-                          <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => rejectItem(item.id, "catalogue")}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={[
+                  { key: "name", header: "Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+                  { key: "type", header: "Type", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+                  { key: "description", header: "Description", render: (v) => <span className="text-sm text-muted-foreground">{String(v)}</span> },
+                  { key: "status", header: "Status", render: (v) => <Badge variant="outline" className={cn("text-xs", statusClass(String(v)))}>{String(v)}</Badge> },
+                  {
+                    key: "_actions",
+                    header: "",
+                    align: "right",
+                    render: (_v, item) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => validateItem((item as CatalogueItem).id, "catalogue")} disabled={(item as CatalogueItem).status === "Validated"}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
+                        <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => rejectItem((item as CatalogueItem).id, "catalogue")}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    ),
+                  },
+                ] as ColumnDef<CatalogueItem>[]}
+                rows={catalogue}
+                getRowKey={(item) => item.id}
+              />
             </Card>
           </TabsContent>
 
@@ -1652,46 +1629,30 @@ export default function DigitalTwin() {
                   </Tooltip>
                 </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead>Attribute Name</TableHead>
-                    <TableHead>Data Type</TableHead>
-                    <TableHead>Unit</TableHead>
-                    <TableHead>Mandatory</TableHead>
-                    <TableHead>Sample Value</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {metadata.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{formatDataType(item.dataType)}</Badge></TableCell>
-                      <TableCell className="text-sm">{item.unit}</TableCell>
-                      <TableCell>
-                        <Badge variant={item.mandatory ? "default" : "outline"} className="text-xs">
-                          {item.mandatory ? "Yes" : "No"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{item.sampleValue}</TableCell>
-                      <TableCell><Badge variant="outline" className={cn("text-xs", statusClass(item.status))}>{item.status}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost" onClick={() => validateItem(item.id, "metadata")} disabled={item.status === "Validated"}>
-                            <CheckCircle2 className="h-4 w-4 text-success" />
-                          </Button>
-                          <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost" onClick={() => rejectItem(item.id, "metadata")}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={[
+                  { key: "name", header: "Attribute Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+                  { key: "dataType", header: "Data Type", render: (v) => <Badge variant="outline" className="text-xs">{formatDataType(String(v))}</Badge> },
+                  { key: "unit", header: "Unit" },
+                  { key: "mandatory", header: "Mandatory", render: (v) => <Badge variant={v ? "default" : "outline"} className="text-xs">{v ? "Yes" : "No"}</Badge> },
+                  { key: "sampleValue", header: "Sample Value", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+                  { key: "status", header: "Status", render: (v) => <Badge variant="outline" className={cn("text-xs", statusClass(String(v)))}>{String(v)}</Badge> },
+                  {
+                    key: "_actions",
+                    header: "",
+                    align: "right",
+                    render: (_v, item) => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="ghost" onClick={() => validateItem((item as MetadataItem).id, "metadata")} disabled={(item as MetadataItem).status === "Validated"}><CheckCircle2 className="h-4 w-4 text-success" /></Button>
+                        <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost" onClick={() => rejectItem((item as MetadataItem).id, "metadata")}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    ),
+                  },
+                ] as ColumnDef<MetadataItem>[]}
+                rows={metadata}
+                getRowKey={(item) => item.id}
+              />
               <div className="mt-6 pt-6 border-t">
                 <h4 className="text-sm font-semibold mb-4 flex items-center gap-2">
                   <Plus className="h-4 w-4" />
@@ -1794,37 +1755,29 @@ export default function DigitalTwin() {
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-muted/30">
-                    <TableHead>Sensor Name</TableHead>
-                    <TableHead>Protocol</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Mapped Attribute</TableHead>
-                    <TableHead>Sampling Rate</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {sensors.map((sensor) => (
-                    <TableRow key={sensor.id}>
-                      <TableCell className="font-medium">{sensor.sensorName}</TableCell>
-                      <TableCell><Badge variant="outline" className="text-xs">{sensor.protocol}</Badge></TableCell>
-                      <TableCell className="font-mono text-xs">{sensor.address}</TableCell>
-                      <TableCell className="text-sm">{sensor.attribute}</TableCell>
-                      <TableCell className="text-sm">{sensor.samplingRate}</TableCell>
-                      <TableCell><Badge variant="outline" className={cn("text-xs", statusClass(sensor.status))}>{sensor.status}</Badge></TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
-                          <Button size="sm" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+              <DataTable
+                columns={[
+                  { key: "sensorName", header: "Sensor Name", render: (v) => <span className="font-medium">{String(v)}</span> },
+                  { key: "protocol", header: "Protocol", render: (v) => <Badge variant="outline" className="text-xs">{String(v)}</Badge> },
+                  { key: "address", header: "Address", render: (v) => <span className="font-mono text-xs">{String(v)}</span> },
+                  { key: "attribute", header: "Mapped Attribute" },
+                  { key: "samplingRate", header: "Sampling Rate" },
+                  { key: "status", header: "Status", render: (v) => <Badge variant="outline" className={cn("text-xs", statusClass(String(v)))}>{String(v)}</Badge> },
+                  {
+                    key: "_actions",
+                    header: "",
+                    align: "right",
+                    render: () => (
+                      <div className="flex items-center justify-end gap-2">
+                        <Button size="sm" variant="ghost"><Pencil className="h-4 w-4" /></Button>
+                        <Button size="sm" variant="ghost"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    ),
+                  },
+                ] as ColumnDef<SensorItem>[]}
+                rows={sensors}
+                getRowKey={(s) => s.id}
+              />
             </Card>
           </TabsContent>
 
