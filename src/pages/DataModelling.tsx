@@ -38,6 +38,25 @@ import { roleData, featureImportance, type BotResponse, type RoleKey } from "@/d
 const DEFAULT_KPI_PROMPT = "Generate top 5 KPIs based on the most important operational and sensor metrics in this dataset";
 const KPI_LIMIT = 5;
 
+function friendlyColumnName(col: string): string {
+  if (!col) return "—";
+  return col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function FriendlyInfoCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="rounded-card border border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-start gap-2">
+        <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-primary">{title}</h3>
+          {children}
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 const promptTypeIcon = {
   text: MessageSquareText,
   table: TableIcon,
@@ -61,7 +80,7 @@ interface Message {
 }
 
 // ─── KPI Tab ────────────────────────────────────────────────────────────────
-function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
+function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; activated?: boolean }) {
   const [machineScope, setMachineScope] = useState("all");
   const [selected, setSelected] = useState<GeneratedKpi | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_KPI_PROMPT);
@@ -69,6 +88,8 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
   const [generating, setGenerating] = useState(false);
   const [executing, setExecuting] = useState(false);
   const [executeResult, setExecuteResult] = useState<Record<string, unknown> | null>(null);
+  const [loadAttempted, setLoadAttempted] = useState(false);
+  const kpiCacheKey = useRef<string | null>(null);
 
   const scopeLabel =
     machineScope === "all"
@@ -76,17 +97,21 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
       : machineLabel(scope.machines.find((m) => m.twin_id === machineScope) ?? { twin_id: machineScope, machine_serial: machineScope, simulation_enabled: false });
 
   const runGenerate = useCallback(
-    async (text: string, opts?: { silent?: boolean }) => {
+    async (text: string, opts?: { silent?: boolean; force?: boolean }) => {
       if (!scope.registryId) {
         if (!opts?.silent) toast.error("No active dataset. Select a dataset in Data Ingestion first.");
         return;
       }
+      const cacheKey = `${scope.registryId}:${machineScope}:${text.trim()}`;
+      if (!opts?.force && kpiCacheKey.current === cacheKey) return;
+
       setGenerating(true);
       setExecuteResult(null);
       try {
         const res = (await analyticsApi.generateKpis(text.trim(), scope.kpiScope(machineScope))) as { kpis?: unknown };
         const mapped = mapGeneratedKpis(res.kpis).slice(0, KPI_LIMIT);
         setKpis(mapped);
+        kpiCacheKey.current = cacheKey;
         if (!opts?.silent) {
           if (mapped.length) toast.success(`Generated ${mapped.length} KPI${mapped.length === 1 ? "" : "s"}`);
           else toast.message("No KPIs returned — try a different prompt");
@@ -95,18 +120,24 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
         if (!opts?.silent) toast.error(err instanceof Error ? err.message : "KPI generation failed");
       } finally {
         setGenerating(false);
+        setLoadAttempted(true);
       }
     },
     [scope, machineScope],
   );
+
+  useEffect(() => {
+    if (!activated || scope.loading || !scope.registryId) return;
+    void runGenerate(DEFAULT_KPI_PROMPT, { silent: true });
+  }, [activated, scope.loading, scope.registryId, machineScope, runGenerate]);
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
       toast.error("Enter a prompt to generate KPIs");
       return;
     }
-    setKpis([]);
-    await runGenerate(prompt.trim());
+    kpiCacheKey.current = null;
+    await runGenerate(prompt.trim(), { force: true });
   };
 
   const handleExecute = async (kpi: GeneratedKpi) => {
@@ -124,15 +155,7 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
     }
   };
 
-  if (scope.loading) {
-    return (
-      <div className="flex items-center justify-center py-16 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> Loading dataset scope…
-      </div>
-    );
-  }
-
-  if (scope.error) {
+  if (scope.error && !scope.registryId) {
     return (
       <Card className="rounded-card p-6 border-destructive/30 bg-destructive/5">
         <p className="text-sm font-medium text-destructive">Could not load dataset</p>
@@ -208,6 +231,11 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
 
   return (
     <div className="space-y-6">
+      {scope.loading && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading dataset…
+        </div>
+      )}
       <Card className="rounded-card p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
@@ -216,7 +244,13 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
               Dataset: <span className="font-semibold text-foreground">{scope.displayName ?? "—"}</span>
             </p>
           </div>
-          <Select value={machineScope} onValueChange={(v) => { setMachineScope(v); setKpis([]); }}>
+          <Select
+            value={machineScope}
+            onValueChange={(v) => {
+              setMachineScope(v);
+              kpiCacheKey.current = null;
+            }}
+          >
             <SelectTrigger className="w-full sm:w-[280px] rounded-button"><SelectValue placeholder="Machine scope" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Machines (Fleet)</SelectItem>
@@ -281,12 +315,12 @@ function KpiPanel({ scope }: { scope: AnalyticsScopeValue }) {
             </Card>
           ))}
         </div>
-      ) : (
+      ) : loadAttempted && !generating ? (
         <Card className="rounded-card p-8 text-center border-dashed">
           <Sparkles className="h-8 w-8 mx-auto text-muted-foreground mb-3" />
-          <p className="text-sm text-muted-foreground">Enter a prompt and click Generate KPIs to load suggestions from your dataset.</p>
+          <p className="text-sm text-muted-foreground">No KPIs were returned for this dataset. Try a different prompt and click Generate KPIs.</p>
         </Card>
-      )}
+      ) : null}
     </div>
   );
 }
@@ -297,6 +331,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
   const [features, setFeatures] = useState<string[]>([]);
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [featuresReady, setFeaturesReady] = useState(false);
+  const featuresCacheKey = useRef<string | null>(null);
 
   const [predTargetCol, setPredTargetCol] = useState("");
   const [predForm, setPredForm] = useState<Record<string, string>>({});
@@ -328,34 +363,34 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
   const loadFeatures = useCallback(async (silent = false) => {
     const mlScope = scope.mlScope(machineId);
     if (!mlScope) return;
-    setFeaturesLoading(true);
-    setFeaturesReady(false);
-    setFeatures([]);
-    setPredTargetCol("");
-    setForecastTarget("");
-    setOutlierTarget("");
+
+    const cacheKey = `${scope.registryId ?? "none"}:${machineId}`;
+    if (featuresCacheKey.current === cacheKey && featuresReady) return;
+
+    const machineChanged = featuresCacheKey.current != null && featuresCacheKey.current !== cacheKey;
+    if (!featuresReady || machineChanged) setFeaturesLoading(true);
+
     try {
       const res = (await analyticsApi.getMlFeatures(mlScope)) as { features?: string[]; files?: Record<string, string[]> };
       const cols = res.features ?? (res.files ? Object.values(res.files)[0] : []) ?? [];
       setFeatures(cols);
       setFeaturesReady(true);
+      featuresCacheKey.current = cacheKey;
       if (cols.length) {
-        setPredTargetCol(cols[0]);
-        setForecastTarget(cols[0]);
-        setOutlierTarget(cols[0]);
+        setPredTargetCol((prev) => (prev && cols.includes(prev) ? prev : cols[0]));
+        setForecastTarget((prev) => (prev && cols.includes(prev) ? prev : cols[0]));
+        setOutlierTarget((prev) => (prev && cols.includes(prev) ? prev : cols[0]));
       }
     } catch (err) {
-      if (!silent) toast.error(err instanceof Error ? err.message : "Failed to load columns");
+      if (!silent) toast.error(err instanceof Error ? err.message : "Failed to load options");
     } finally {
       setFeaturesLoading(false);
     }
-  }, [scope, machineId]);
+  }, [scope, machineId, featuresReady]);
 
   useEffect(() => {
-    if (!activated) return;
-    if (!scope.loading && !scope.error && machineId && scope.mlScope(machineId)) {
-      void loadFeatures(true);
-    }
+    if (!activated || scope.loading || scope.error || !machineId || !scope.mlScope(machineId)) return;
+    void loadFeatures(true);
   }, [activated, scope.loading, scope.error, scope.registryId, machineId, loadFeatures]);
 
   const runTrainRf = async () => {
@@ -381,7 +416,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       }
       setPredForm(defaults);
       setPredictionRun(true);
-      toast.success("Random Forest model trained");
+      toast.success("Prediction model ready");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Training failed");
     } finally {
@@ -459,18 +494,25 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
     }
   };
 
-  if (scope.loading) {
-    return <div className="flex items-center gap-2 text-sm text-muted-foreground py-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading dataset…</div>;
-  }
-  if (scope.error) {
-    return <p className="text-sm text-destructive">{scope.error}</p>;
+  if (scope.error && !scope.registryId) {
+    return (
+      <Card className="rounded-card p-6 border-destructive/30 bg-destructive/5">
+        <p className="text-sm font-medium text-destructive">Could not load dataset</p>
+        <p className="text-xs text-muted-foreground mt-1">{scope.error}</p>
+      </Card>
+    );
   }
 
   return (
     <div className="space-y-4">
       <Card className="rounded-card p-4 sm:p-5 space-y-3">
         <p className="text-xs text-muted-foreground">
-          Active dataset: <span className="font-semibold text-foreground">{scope.displayName ?? scope.fileName}</span>
+          Active dataset: <span className="font-semibold text-foreground">{scope.displayName ?? scope.fileName ?? "—"}</span>
+          {scope.loading && (
+            <span className="ml-2 inline-flex items-center gap-1 text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" /> Updating…
+            </span>
+          )}
         </p>
         <div>
           <Label className="text-xs">Machine (required for ML)</Label>
@@ -478,6 +520,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
             value={machineId}
             onValueChange={(v) => {
               setMachineId(v);
+              featuresCacheKey.current = null;
               setPredictionRun(false);
               setForecastRun(false);
               setOutlierRun(false);
@@ -495,9 +538,9 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
           </Select>
         </div>
         {featuresLoading ? (
-          <Badge variant="outline" className="text-xs gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Loading target columns…</Badge>
+          <Badge variant="outline" className="text-xs gap-1.5"><Loader2 className="h-3 w-3 animate-spin" />Loading options…</Badge>
         ) : featuresReady ? (
-          <Badge variant="outline" className="text-xs">{features.length} numeric column{features.length === 1 ? "" : "s"} available</Badge>
+          <Badge variant="outline" className="text-xs">{features.length} metric{features.length === 1 ? "" : "s"} ready to use</Badge>
         ) : null}
       </Card>
 
@@ -505,42 +548,31 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       <TabsList className="rounded-button">
         <TabsTrigger value="prediction" className="rounded-button">Prediction</TabsTrigger>
         <TabsTrigger value="forecast" className="rounded-button">Forecast</TabsTrigger>
-        <TabsTrigger value="outlier" className="rounded-button">Outlier Detection</TabsTrigger>
+        <TabsTrigger value="outlier" className="rounded-button">Unusual readings</TabsTrigger>
       </TabsList>
 
       {/* Prediction */}
       <TabsContent value="prediction" className="space-y-6">
         <Card className="rounded-card p-6 space-y-5">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Prediction Analysis</h2>
-            <p className="text-sm text-muted-foreground">Categorize data into distinct groups using supervised learning</p>
+            <h2 className="text-lg font-semibold mb-2">Prediction</h2>
+            <p className="text-sm text-muted-foreground">Estimate what may happen next based on current machine readings</p>
           </div>
 
-          <Card className="rounded-card border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-primary">What are Target Columns?</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Target columns are <strong>outcome variables</strong> you want to predict based on input features. The system automatically identifies columns suitable for prediction based on:
-                </p>
-                <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li><strong>Numeric continuous values</strong> - Columns with measurable outcomes (e.g., failure probability, remaining useful life)</li>
-                  <li><strong>Business relevance</strong> - Metrics that drive operational decisions and maintenance planning</li>
-                  <li><strong>Data quality</strong> - Columns with sufficient historical data and minimal missing values</li>
-                  <li><strong>Predictive power</strong> - Variables that show strong correlation with input features</li>
-                </ul>
-                <p className="text-xs text-accent mt-2">
-                  <strong>Example:</strong> <span className="font-mono">failure_probability_14d</span> predicts machine failure risk within 14 days based on vibration, temperature, and maintenance history.
-                </p>
-              </div>
-            </div>
-          </Card>
+          <FriendlyInfoCard title="What should I predict?">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Choose the outcome you care about — such as failure risk, remaining life, or efficiency.
+              We use your machine&apos;s sensor history to estimate it for you.
+            </p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Tip:</strong> Pick a metric that helps you decide maintenance or operations — for example, &ldquo;Is this pump likely to fail soon?&rdquo;
+            </p>
+          </FriendlyInfoCard>
 
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <Label className="text-sm font-medium">Target Column</Label>
+                <Label className="text-sm font-medium">What do you want to predict?</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -548,30 +580,29 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                     </TooltipTrigger>
                     <TooltipContent side="left" className="max-w-[320px]">
                       <p className="text-xs">
-                        <strong>Available prediction targets:</strong><br />
-                        • failure_probability_14d - Predict failure risk<br />
-                        • remaining_useful_life_days - Asset lifespan<br />
-                        • next_oee - Expected efficiency score
+                        These are metrics from your dataset that can be estimated from other readings — like health scores, failure risk, or performance levels.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <Select value={predTargetCol} onValueChange={setPredTargetCol} disabled={featuresLoading || !features.length}>
-                <SelectTrigger className="mt-1.5 rounded-button"><SelectValue placeholder={featuresLoading ? "Loading columns…" : "Select target column"} /></SelectTrigger>
+                <SelectTrigger className="mt-1.5 rounded-button"><SelectValue placeholder={featuresLoading ? "Loading options…" : "Choose a metric"} /></SelectTrigger>
                 <SelectContent>
                   {features.map((col) => (
-                    <SelectItem key={col} value={col}>{col}</SelectItem>
+                    <SelectItem key={col} value={col}>{friendlyColumnName(col)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Selected target: <span className="font-mono text-foreground">{predTargetCol}</span> - {predTargetCol === "failure_probability_14d" ? "Predicts machine failure probability within next 14 days" : predTargetCol === "remaining_useful_life_days" ? "Estimates remaining operational days before maintenance" : "Forecasts next Overall Equipment Effectiveness score"}
-              </p>
+              {predTargetCol && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Selected: <span className="font-medium text-foreground">{friendlyColumnName(predTargetCol)}</span>
+                </p>
+              )}
             </div>
             <Button onClick={() => void runTrainRf()} disabled={training || featuresLoading || !featuresReady || !predTargetCol} className="w-full rounded-button bg-primary hover:bg-primary/90" size="lg">
               {training ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
-              Run Prediction Analysis
+              Run Prediction
             </Button>
           </div>
         </Card>
@@ -656,22 +687,21 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <BarChart3 className="h-5 w-5 text-accent" />
-                    <h3 className="text-sm font-semibold">Correlation with Target ({predTargetCol})</h3>
+                    <h3 className="text-sm font-semibold">What influenced this result?</h3>
                   </div>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <button
                         type="button"
                         className="inline-flex rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        aria-label="About correlation with target"
+                        aria-label="About influencing factors"
                       >
                         <Info className="h-4 w-4" />
                       </button>
                     </TooltipTrigger>
                     <TooltipContent className="max-w-xs z-[100]">
                       <p className="text-xs">
-                        Feature importance indicates how much each variable contributes to the prediction. 
-                        Pearson correlation shows the linear relationship strength between features and the target.
+                        Shows which readings had the strongest influence on the prediction — the higher the impact, the more that factor shaped the result.
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -679,22 +709,22 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                 
                 <DataTable
                   columns={[
-                    { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
-                    { key: "importance", header: "Importance", align: "right", render: (v) => <span className="text-xs font-semibold">{(v as number).toFixed(2)}</span> },
-                    { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(2)}</span> },
+                    { key: "feature", header: "Reading", render: (v) => <span className="font-medium text-xs">{friendlyColumnName(String(v))}</span> },
+                    { key: "importance", header: "Impact", align: "right", render: (v) => <span className="text-xs font-semibold">{(v as number).toFixed(2)}</span> },
+                    { key: "correlation", header: "Link to outcome", align: "right", render: (v) => <span className="text-xs">{(v as number).toFixed(2)}</span> },
                     {
                       key: "_strength",
-                      header: "Strength & Impact",
+                      header: "Strength",
                       align: "right",
                       render: (_v, item) => {
                         const it = item as { feature: string; importance: number; correlation: number };
                         const absCorr = Math.abs(it.correlation);
                         const strengthLevel = absCorr >= 0.5 ? "Strong" : absCorr >= 0.3 ? "Moderate" : "Weak";
                         const strengthDesc = absCorr >= 0.5
-                          ? "Strong correlation indicates this feature has significant predictive power for the target variable."
+                          ? "This reading has a strong link to the predicted outcome."
                           : absCorr >= 0.3
-                          ? "Moderate correlation shows this feature has meaningful but not dominant influence on predictions."
-                          : "Weak correlation suggests limited direct linear relationship with the target.";
+                          ? "This reading has a noticeable link to the predicted outcome."
+                          : "This reading has a weaker link, but may still contribute.";
                         return (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -706,13 +736,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                             </TooltipTrigger>
                             <TooltipContent side="left" className="max-w-xs z-[100]">
                               <div className="space-y-2">
-                                <p className="text-xs font-semibold">{strengthLevel} Correlation</p>
+                                <p className="text-xs font-semibold">{strengthLevel} link</p>
                                 <p className="text-xs text-muted-foreground">{strengthDesc}</p>
-                                <div className="pt-2 border-t space-y-1">
-                                  <p className="text-xs"><strong>Importance:</strong> {(it.importance * 100).toFixed(0)}% contribution to model</p>
-                                  <p className="text-xs"><strong>Correlation:</strong> {it.correlation > 0 ? "Positive" : "Negative"} ({it.correlation.toFixed(3)})</p>
-                                  <p className="text-xs"><strong>Impact:</strong> {absCorr >= 0.5 ? "High" : absCorr >= 0.3 ? "Medium" : "Low"} predictive power</p>
-                                </div>
                               </div>
                             </TooltipContent>
                           </Tooltip>
@@ -782,34 +807,20 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
         <Card className="rounded-card p-6 space-y-5">
           <div>
             <h2 className="text-lg font-semibold mb-2">Forecast</h2>
-            <p className="text-sm text-muted-foreground">Generate time-based forecasts to predict future trends</p>
+            <p className="text-sm text-muted-foreground">See how a metric may trend over the coming days or weeks</p>
           </div>
 
-          <Card className="rounded-card border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-primary">How Target Columns are Selected for Forecasting</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Forecast targets are <strong>time-series metrics</strong> with historical patterns. The system identifies columns suitable for forecasting based on:
-                </p>
-                <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li><strong>Temporal continuity</strong> - Metrics recorded consistently over time with clear timestamps</li>
-                  <li><strong>Trend patterns</strong> - Historical data showing growth, decline, or seasonal patterns</li>
-                  <li><strong>Aggregatable metrics</strong> - Values that can be summed or averaged across time periods</li>
-                  <li><strong>Operational KPIs</strong> - Business-critical metrics for capacity planning and resource allocation</li>
-                </ul>
-                <p className="text-xs text-accent mt-2">
-                  <strong>Example:</strong> <span className="font-mono">cluster_output</span> forecasts production throughput to help plan capacity, schedule maintenance windows, and allocate resources.
-                </p>
-              </div>
-            </div>
-          </Card>
+          <FriendlyInfoCard title="What can I forecast?">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Choose a metric that changes over time — like daily output, energy use, or efficiency.
+              We project how it may move ahead so you can plan staffing, maintenance, and capacity.
+            </p>
+          </FriendlyInfoCard>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <Label className="text-sm font-medium">Target Column</Label>
+                <Label className="text-sm font-medium">What do you want to forecast?</Label>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -817,26 +828,25 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                     </TooltipTrigger>
                     <TooltipContent side="right" className="max-w-[300px]">
                       <p className="text-xs">
-                        <strong>Available forecast targets:</strong><br />
-                        • cluster_output - Production throughput<br />
-                        • avg_oee - Average efficiency<br />
-                        • energy_kwh - Energy consumption
+                        Pick a metric with history over time — production output, efficiency, energy use, and similar trends work well.
                       </p>
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
               </div>
               <Select value={forecastTarget} onValueChange={setForecastTarget} disabled={featuresLoading || !features.length}>
-                <SelectTrigger className="mt-1.5 rounded-button"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="mt-1.5 rounded-button"><SelectValue placeholder="Choose a metric" /></SelectTrigger>
                 <SelectContent>
                   {features.map((col) => (
-                    <SelectItem key={col} value={col}>{col}</SelectItem>
+                    <SelectItem key={col} value={col}>{friendlyColumnName(col)}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground mt-1.5">
-                Forecasting: <span className="font-mono text-foreground">{forecastTarget}</span>
-              </p>
+              {forecastTarget && (
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  Forecasting: <span className="font-medium text-foreground">{friendlyColumnName(forecastTarget)}</span>
+                </p>
+              )}
             </div>
             <div>
               <Label className="text-sm font-medium">Frequency</Label>
@@ -864,26 +874,22 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
           </div>
           <Button onClick={() => void runForecast()} disabled={forecastLoading || featuresLoading || !featuresReady || !forecastTarget} className="w-full rounded-button bg-primary hover:bg-primary/90" size="lg">
             {forecastLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BarChart3 className="mr-2 h-4 w-4" />}
-            Run Forecast Analysis
+            Run Forecast
           </Button>
         </Card>
 
         {forecastRun && (
           <Card className="rounded-card p-6 space-y-6">
-            <h2 className="text-lg font-semibold">Time Series Forecast Results</h2>
+            <h2 className="text-lg font-semibold">Forecast results</h2>
             
             <Card className="rounded-card border border-primary/20 bg-primary/5 p-5">
               <div className="flex items-start gap-2">
                 <Lightbulb className="h-5 w-5 text-warning shrink-0 mt-0.5" />
                 <div>
-                  <h3 className="text-sm font-semibold text-primary">What is "Fleet Output"?</h3>
+                  <h3 className="text-sm font-semibold text-primary">How to read this chart</h3>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    <strong>Fleet Output</strong> measures the total production throughput across all machines in units per hour. 
-                    It aggregates individual machine outputs to show overall manufacturing capacity utilization. 
-                    This metric helps predict production bottlenecks and capacity planning requirements.
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-2 leading-relaxed">
-                    Forecast uses ARIMA on the selected machine&apos;s historical {forecastTarget} series.
+                    This shows how <strong>{friendlyColumnName(forecastTarget)}</strong> may change over the period you selected,
+                    based on past patterns for this machine.
                   </p>
                 </div>
               </div>
@@ -891,15 +897,15 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
             
             <div>
               <p className="text-sm text-muted-foreground mb-4 flex items-center gap-1.5">
-                <CheckCircle2 className="h-4 w-4 text-success" /> Forecast Status: Successfully Generated
+                <CheckCircle2 className="h-4 w-4 text-success" /> Forecast ready
               </p>
               <Card className="rounded-card border p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">Forecasted {forecastTarget} Over Time</h3>
+                  <h3 className="text-sm font-semibold">Projected {friendlyColumnName(forecastTarget)}</h3>
                   <ChartInfo
-                    xAxis="Date (forecast period)"
-                    yAxis="Fleet output in units per hour (total production throughput)"
-                    note="Shows predicted production capacity based on historical patterns, seasonality, and trend analysis. Helps with capacity planning and resource allocation."
+                    xAxis="Date"
+                    yAxis={friendlyColumnName(forecastTarget)}
+                    note="Use this trend to plan maintenance windows, staffing, and capacity."
                   />
                 </div>
                 <div className="h-[300px]">
@@ -939,36 +945,22 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       <TabsContent value="outlier" className="space-y-6">
         <Card className="rounded-card p-6 space-y-5">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Outlier Detection</h2>
+            <h2 className="text-lg font-semibold mb-2">Unusual readings</h2>
             <p className="text-sm text-muted-foreground">
-              Detect anomalies in your data using the Interquartile Range (IQR) method
+              Find sensor values that look abnormally high or low compared to normal operation
             </p>
           </div>
 
-          <Card className="rounded-card border border-primary/20 bg-primary/5 p-4">
-            <div className="flex items-start gap-2">
-              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div className="space-y-2">
-                <h3 className="text-sm font-semibold text-primary">Target Column Selection for Outlier Detection</h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Outlier detection targets are <strong>numeric sensor readings</strong> and operational metrics. Columns are selected based on:
-                </p>
-                <ul className="text-xs text-muted-foreground space-y-1 ml-4 list-disc">
-                  <li><strong>Numeric continuous data</strong> - Sensor readings, consumption metrics, or performance indicators</li>
-                  <li><strong>Known normal ranges</strong> - Metrics with established operating parameters and thresholds</li>
-                  <li><strong>Statistical distribution</strong> - Data suitable for IQR (Interquartile Range) analysis</li>
-                  <li><strong>Anomaly significance</strong> - Deviations that indicate equipment issues or process problems</li>
-                </ul>
-                <p className="text-xs text-accent mt-2">
-                  <strong>Example:</strong> <span className="font-mono">energy_consumption_kwh</span> detects machines consuming abnormally high energy, indicating potential motor degradation, misalignment, or inefficiency.
-                </p>
-              </div>
-            </div>
-          </Card>
+          <FriendlyInfoCard title="What should I check?">
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Select a sensor or performance metric — such as temperature, vibration, or energy use.
+              We highlight readings that stand out from the usual range, which can be an early warning sign.
+            </p>
+          </FriendlyInfoCard>
 
           <div>
             <div className="flex items-center justify-between mb-1.5">
-              <Label className="text-sm font-medium">Target Column</Label>
+              <Label className="text-sm font-medium">Which metric should we check?</Label>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -976,69 +968,60 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-[320px]">
                     <p className="text-xs">
-                      <strong>Outlier detection targets:</strong><br />
-                      • energy_consumption_kwh - Abnormal energy use<br />
-                      • vibration_g - Excessive vibrations<br />
-                      • system_temp_c - Temperature anomalies<br />
-                      • speed_kmph - Unusual speed patterns
+                      Good choices are numeric readings where you know what &ldquo;normal&rdquo; looks like — temperature, vibration, speed, or energy use.
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <Select value={outlierTarget} onValueChange={setOutlierTarget} disabled={featuresLoading || !features.length}>
-              <SelectTrigger className="mt-1.5 rounded-button"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="mt-1.5 rounded-button"><SelectValue placeholder="Choose a metric" /></SelectTrigger>
               <SelectContent>
                 {features.map((col) => (
-                  <SelectItem key={col} value={col}>{col}</SelectItem>
+                  <SelectItem key={col} value={col}>{friendlyColumnName(col)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground mt-1.5">
-              Analyzing: <span className="font-mono text-foreground">{outlierTarget}</span> - Detects statistically extreme values using IQR method
-            </p>
+            {outlierTarget && (
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Checking: <span className="font-medium text-foreground">{friendlyColumnName(outlierTarget)}</span>
+              </p>
+            )}
           </div>
           <Button onClick={() => void runOutlier()} disabled={outlierLoading || featuresLoading || !featuresReady || !outlierTarget} className="w-full rounded-button bg-primary hover:bg-primary/90" size="lg">
             {outlierLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-            Run Outlier Detection
+            Find unusual readings
           </Button>
         </Card>
 
-        {outlierLoading && (
-          <Card className="rounded-card p-12 flex items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" /> Running outlier analysis…
-          </Card>
-        )}
-
         {outlierRun && outlierReport && !outlierLoading && (
           <Card className="rounded-card p-6 space-y-6">
-            <h2 className="text-lg font-semibold">Anomaly Detection Results</h2>
+            <h2 className="text-lg font-semibold">Results</h2>
 
             {outlierReport.summary.outlier_count === 0 ? (
               <Card className="rounded-card p-8 text-center border-dashed">
                 <CheckCircle2 className="h-10 w-10 mx-auto text-success mb-3" />
-                <p className="text-sm font-medium">No outliers detected</p>
+                <p className="text-sm font-medium">Everything looks normal</p>
                 <p className="text-xs text-muted-foreground mt-2">
-                  All <span className="font-mono text-foreground">{outlierReport.summary.column}</span> values fall within{" "}
-                  {outlierReport.summary.lower_bound} – {outlierReport.summary.upper_bound}.
+                  All {friendlyColumnName(outlierReport.summary.column)} readings fall within the expected range
+                  ({outlierReport.summary.lower_bound} – {outlierReport.summary.upper_bound}).
                 </p>
               </Card>
             ) : (
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="p-4 border-l-4 border-l-destructive bg-destructive/5">
-                    <p className="text-xs text-muted-foreground">Outliers Detected</p>
+                    <p className="text-xs text-muted-foreground">Unusual readings</p>
                     <p className="text-3xl font-bold text-destructive mt-1">{outlierReport.summary.outlier_count.toLocaleString()}</p>
                   </Card>
                   <Card className="p-4 border-l-4 border-l-warning bg-warning/5">
-                    <p className="text-xs text-muted-foreground">Normal Range</p>
+                    <p className="text-xs text-muted-foreground">Normal range</p>
                     <p className="text-xl font-bold text-warning mt-1">
                       {outlierReport.summary.lower_bound} – {outlierReport.summary.upper_bound}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">{outlierReport.summary.method ?? "IQR"} method</p>
                   </Card>
                   <Card className="p-4 border-l-4 border-l-accent bg-accent/5">
-                    <p className="text-xs text-muted-foreground">Preview Rows</p>
+                    <p className="text-xs text-muted-foreground">Sample rows shown</p>
                     <p className="text-xl font-bold text-accent mt-1">{outlierReport.rows.length.toLocaleString()}</p>
                   </Card>
                 </div>
@@ -1047,8 +1030,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                   <DataTable
                     columns={Object.keys(outlierReport.rows[0]).map((col) => ({
                       key: col,
-                      header: col.replace(/_/g, " "),
-                      render: (v) => <span className="text-xs font-mono">{String(v ?? "")}</span>,
+                      header: friendlyColumnName(col),
+                      render: (v) => <span className="text-xs">{String(v ?? "")}</span>,
                     }) as ColumnDef)}
                     rows={outlierReport.rows.slice(0, 25)}
                     getRowKey={(_r, i) => i}
@@ -1298,7 +1281,7 @@ export default function DataModelling() {
       <div>
         <h1 className="text-2xl font-semibold">Data Modelling</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Generate KPIs, run predictive models, and chat with your fleet data
+          Build KPIs, run predictions, and explore your fleet data in plain language
         </p>
       </div>
 
@@ -1309,7 +1292,7 @@ export default function DataModelling() {
           <TabsTrigger value="ai" className="rounded-button gap-1.5"><Bot className="h-3.5 w-3.5" /> AI</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="kpi"><KpiPanel scope={scope} /></TabsContent>
+        <TabsContent value="kpi"><KpiPanel scope={scope} activated={activeTab === "kpi"} /></TabsContent>
         <TabsContent value="modelling"><ModellingPanel scope={scope} activated={activeTab === "modelling"} /></TabsContent>
         <TabsContent value="ai"><AiPanel /></TabsContent>
       </Tabs>
