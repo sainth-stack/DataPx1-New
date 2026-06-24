@@ -21,6 +21,8 @@ export function useAnalyticsScope(): AnalyticsScopeValue {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnce = useRef(false);
+  const inflightRef = useRef<Promise<void> | null>(null);
+  const loadedScopeKeyRef = useRef<string | null>(null);
 
   const fileName =
     activeDataset?.display_name ??
@@ -28,41 +30,74 @@ export function useAnalyticsScope(): AnalyticsScopeValue {
     null;
   const displayName = activeDataset?.display_name ?? fileName;
 
+  const activeDatasetId = activeDataset?.dataset_id ?? null;
+  const scopeKey =
+    !datasetInitialLoading && activeRegistryId != null && activeDatasetId
+      ? `${activeRegistryId}:${activeDatasetId}`
+      : null;
+
   const refresh = useCallback(async () => {
     if (datasetInitialLoading) return;
-    if (!activeRegistryId || !activeDataset) {
+    if (!activeRegistryId || !activeDatasetId) {
       setMachines([]);
       setLoading(false);
       setError("No active dataset. Select a dataset in Data Ingestion first.");
       hasLoadedOnce.current = false;
+      loadedScopeKeyRef.current = null;
       return;
     }
+
+    if (inflightRef.current) return inflightRef.current;
 
     const isInitial = !hasLoadedOnce.current;
     if (isInitial) setLoading(true);
     setError(null);
-    try {
-      const res = await digitalTwinApi.listFleets();
-      const registryMachines =
-        res.fleets?.flatMap((f) =>
-          f.registry_id === String(activeRegistryId) || Number(f.registry_id) === activeRegistryId
-            ? f.machines
-            : [],
-        ) ?? [];
-      setMachines(registryMachines.length ? registryMachines : res.fleets?.flatMap((f) => f.machines) ?? []);
-      hasLoadedOnce.current = true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load dataset scope");
-      setMachines([]);
-    } finally {
-      if (isInitial) setLoading(false);
-    }
-  }, [activeRegistryId, activeDataset, datasetInitialLoading]);
+
+    const task = (async () => {
+      try {
+        const res = await digitalTwinApi.listFleets();
+        const registryMachines =
+          res.fleets?.flatMap((f) =>
+            f.registry_id === String(activeRegistryId) || Number(f.registry_id) === activeRegistryId
+              ? f.machines
+              : [],
+          ) ?? [];
+        setMachines(registryMachines.length ? registryMachines : res.fleets?.flatMap((f) => f.machines) ?? []);
+        hasLoadedOnce.current = true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load dataset scope");
+        setMachines([]);
+        hasLoadedOnce.current = false;
+        loadedScopeKeyRef.current = null;
+      } finally {
+        if (isInitial) setLoading(false);
+        inflightRef.current = null;
+      }
+    })();
+
+    inflightRef.current = task;
+    return task;
+  }, [activeRegistryId, activeDatasetId, datasetInitialLoading]);
 
   useEffect(() => {
-    hasLoadedOnce.current = false;
+    if (datasetInitialLoading) return;
+
+    if (!scopeKey) {
+      setMachines([]);
+      setLoading(false);
+      setError("No active dataset. Select a dataset in Data Ingestion first.");
+      hasLoadedOnce.current = false;
+      loadedScopeKeyRef.current = null;
+      return;
+    }
+
+    if (loadedScopeKeyRef.current === scopeKey && hasLoadedOnce.current) {
+      return;
+    }
+
+    loadedScopeKeyRef.current = scopeKey;
     void refresh();
-  }, [activeRegistryId, activeDataset?.dataset_id, refresh]);
+  }, [scopeKey, datasetInitialLoading, refresh]);
 
   const kpiScope = useCallback(
     (machineTwinId: string): DatasetScope => {

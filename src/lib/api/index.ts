@@ -27,6 +27,14 @@ export { vectorApi } from "./vector";
 export { analyticsApi } from "./analytics";
 export { reportsApi } from "./reports";
 export { adminApi } from "./admin";
+export { modellingAiApi, ACTION_LABELS } from "./modellingAi";
+export type {
+  ModellingAiAction,
+  ModellingAiContext,
+  ModellingAiInsight,
+  ModellingAiIpr,
+  ModellingAiSection,
+} from "./modellingAi";
 export type { TenantRecord, OrganizationRecord, UserRecord, RoleRecord, SessionRecord, Pagination } from "./admin";
 export { registryParams, datasetScopeParams, assertApiSuccess, extractApiMessage } from "./scope";
 export type { RegistryScope, DatasetScope } from "./scope";

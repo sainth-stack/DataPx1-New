@@ -18,6 +18,8 @@ export interface Agent {
   mttrMin: number;
   description: string;
   icon: LucideIcon;
+  registryId?: number;
+  datasetName?: string;
 }
 
 export interface Anomaly {
@@ -31,6 +33,8 @@ export interface Anomaly {
   observed: string;
   confidence: number;
   classification: "drift" | "spike" | "pattern" | "outlier";
+  registryId?: number;
+  datasetName?: string;
 }
 
 export interface Alert {
@@ -49,6 +53,8 @@ export interface Alert {
     inApp: "sent" | "pending" | "failed" | "off";
   };
   recipients?: number;
+  registryId?: number;
+  datasetName?: string;
 }
 
 export interface Trigger {
@@ -60,6 +66,8 @@ export interface Trigger {
   enabled: boolean;
   firedToday: number;
   lastFired: string;
+  registryId?: number;
+  datasetName?: string;
 }
 
 export interface LoopAction {
@@ -122,6 +130,14 @@ function displayAgentName(name: string): string {
   return name.replace(/\s*\([^)]*\)\s*$/, "").trim() || name;
 }
 
+function mapRegistryFields(raw: Record<string, unknown>) {
+  const registryId = raw.registryId ?? raw.registry_id;
+  return {
+    registryId: registryId != null ? Number(registryId) : undefined,
+    datasetName: raw.datasetName != null ? String(raw.datasetName) : raw.dataset_name != null ? String(raw.dataset_name) : undefined,
+  };
+}
+
 export function mapAgent(raw: Record<string, unknown>): Agent {
   const rawName = String(raw.name ?? "");
   const name = displayAgentName(rawName);
@@ -137,6 +153,7 @@ export function mapAgent(raw: Record<string, unknown>): Agent {
     mttrMin: Number(raw.mttrMinutes ?? raw.mttrMin ?? 0),
     description: String(raw.description ?? ""),
     icon: agentIcon(name),
+    ...mapRegistryFields(raw),
   };
 }
 
@@ -152,6 +169,7 @@ export function mapAnomaly(raw: Record<string, unknown>): Anomaly {
     observed: formatValue(raw.observed),
     confidence: Number(raw.confidence ?? 0),
     classification: (raw.classification as Anomaly["classification"]) ?? "outlier",
+    ...mapRegistryFields(raw),
   };
 }
 
@@ -173,6 +191,7 @@ export function mapAlert(raw: Record<string, unknown>): Alert {
       inApp: notifState(notifications.inApp ?? "sent"),
     },
     recipients: raw.recipients != null ? Number(raw.recipients) : undefined,
+    ...mapRegistryFields(raw),
   };
 }
 
@@ -186,6 +205,7 @@ export function mapTrigger(raw: Record<string, unknown>): Trigger {
     enabled: Boolean(raw.enabled),
     firedToday: Number(raw.firedToday ?? 0),
     lastFired: String(raw.lastFired ?? "—"),
+    ...mapRegistryFields(raw),
   };
 }
 

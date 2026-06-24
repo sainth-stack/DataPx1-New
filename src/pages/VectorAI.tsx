@@ -1,9 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDataset } from "@/contexts/DatasetContext";
 import { vectorApi } from "@/lib/api/vector";
+import type { RegistryScope } from "@/lib/api/scope";
+import { VectorDatasetMultiSelect } from "@/components/vector/VectorDatasetMultiSelect";
+import {
+  buildVectorRegistryScope,
+  parseVectorDatasetScope,
+  readStoredRegistrySelection,
+  workspaceToVectorOptions,
+  writeStoredRegistrySelection,
+  type VectorDatasetScope,
+} from "@/lib/vectorScope";
 import {
   type Agent, type Alert, type Anomaly, type Trigger, type LoopAction,
   type HeaderKpis, type AgentSummary, type TriggerHeaderKpis, type Interval,
@@ -189,7 +199,17 @@ function NotifPill({
 // ============================================================================
 export default function VectorAI() {
   const { user } = useAuth();
-  const { activeRegistryId, activeDataset, loading: datasetLoading } = useDataset();
+  const { workspaceDatasets, activeRegistryId, loading: datasetLoading } = useDataset();
+  const historyUserId = user?.userId;
+
+  const workspaceOptions = useMemo(
+    () => workspaceToVectorOptions(workspaceDatasets),
+    [workspaceDatasets],
+  );
+
+  const [selectedRegistryIds, setSelectedRegistryIds] = useState<number[]>([]);
+  const [selectionReady, setSelectionReady] = useState(false);
+  const [datasetScope, setDatasetScope] = useState<VectorDatasetScope>("single");
 
   const [pageLoading, setPageLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -229,50 +249,74 @@ export default function VectorAI() {
   const [showKpiDialog, setShowKpiDialog] = useState(false);
 
   const scopeParams = useCallback(
-    (registryId: number, refresh = false) => ({ registry_id: registryId, refresh }),
-    [],
+    (refresh = false): RegistryScope =>
+      buildVectorRegistryScope(selectedRegistryIds, workspaceOptions.length, refresh),
+    [selectedRegistryIds, workspaceOptions.length],
   );
 
+  const isMultiDataset = datasetScope !== "single";
+
+  const applyResponseMeta = useCallback((res: Record<string, unknown>) => {
+    setDatasetScope(parseVectorDatasetScope(res.datasetScope));
+    const name = res.display_name;
+    if (name != null && String(name).trim()) {
+      setDatasetLabel(String(name));
+    }
+  }, []);
+
+  const resolveRowRegistryId = useCallback(
+    (rowRegistryId?: number) =>
+      rowRegistryId ?? (selectedRegistryIds.length === 1 ? selectedRegistryIds[0] : undefined),
+    [selectedRegistryIds],
+  );
+
+  const rowKey = (registryId: number | undefined, id: string) =>
+    `${registryId ?? "na"}-${id}`;
+
   const loadTabData = useCallback(
-    async (tab: VectorTab, registryId: number, refresh = false) => {
+    async (tab: VectorTab, scope: RegistryScope, refresh = false) => {
       setTabLoading(tab);
       setTabError(null);
       try {
-        const scope = scopeParams(registryId, refresh);
+        const params = { ...scope, refresh };
         switch (tab) {
           case "agents": {
-            const res = (await vectorApi.listAgents(scope)) as Record<string, unknown>;
+            const res = (await vectorApi.listAgents(params)) as Record<string, unknown>;
             setAgents(((res.agents as Record<string, unknown>[]) ?? []).map(mapAgent));
             setAgentSummary((res.summary as AgentSummary) ?? null);
-            setDatasetLabel(String(res.display_name ?? activeDataset?.display_name ?? registryId));
+            applyResponseMeta(res);
             break;
           }
           case "anomalies": {
-            const res = (await vectorApi.getAnomalies({ ...scope, limit: 50 })) as Record<string, unknown>;
+            const res = (await vectorApi.getAnomalies({ ...params, limit: 50 })) as Record<string, unknown>;
             setAnomalies(((res.anomalies as Record<string, unknown>[]) ?? []).map(mapAnomaly));
             const summary = res.summary as { last24h?: number } | undefined;
             setAnomalies24h(summary?.last24h ?? 0);
+            applyResponseMeta(res);
             break;
           }
           case "alerts": {
-            const res = (await vectorApi.getAlerts({ ...scope, limit: 50 })) as Record<string, unknown>;
+            const res = (await vectorApi.getAlerts({ ...params, limit: 50 })) as Record<string, unknown>;
             setAlerts(((res.alerts as Record<string, unknown>[]) ?? []).map(mapAlert));
             setHeaderKpis((res.headerKpis as HeaderKpis) ?? null);
+            applyResponseMeta(res);
             break;
           }
           case "triggers": {
-            const res = (await vectorApi.listTriggers(scope)) as Record<string, unknown>;
+            const res = (await vectorApi.listTriggers(params)) as Record<string, unknown>;
             setTriggers(((res.triggers as Record<string, unknown>[]) ?? []).map(mapTrigger));
             const hk = res.headerKpis as TriggerHeaderKpis | undefined;
             setTriggerHeaderKpis(hk ?? null);
+            applyResponseMeta(res);
             break;
           }
           case "performance": {
-            const res = (await vectorApi.getPerformance({ ...scope, interval })) as Record<string, unknown>;
+            const res = (await vectorApi.getPerformance({ ...params, interval })) as Record<string, unknown>;
             const perf = mapPerformance(res);
             setPerfPoints(perf.points);
             setPerfUplift(perf.uplift);
             setDomainBreakdown(perf.domainBreakdown);
+            applyResponseMeta(res);
             break;
           }
         }
@@ -283,47 +327,87 @@ export default function VectorAI() {
         setTabLoading(null);
       }
     },
-    [scopeParams, interval, activeDataset?.display_name],
+    [applyResponseMeta, interval],
+  );
+
+  const reloadVectorData = useCallback(
+    async (tab: VectorTab, refresh = false) => {
+      if (!selectedRegistryIds.length) return;
+      const scope = buildVectorRegistryScope(selectedRegistryIds, workspaceOptions.length, refresh);
+      await loadTabData(tab, scope, refresh);
+    },
+    [selectedRegistryIds, workspaceOptions.length, loadTabData],
   );
 
   const initPage = useCallback(
-    async (registryId: number) => {
-      setPageLoading(true);
+    async (tab: VectorTab = "agents", silent = false) => {
+      if (!selectedRegistryIds.length) return;
+      if (!silent) setPageLoading(true);
       setPageError(null);
       setLoadedTabs(new Set());
-      setDatasetLabel(activeDataset?.display_name ?? String(registryId));
+      const scope = buildVectorRegistryScope(selectedRegistryIds, workspaceOptions.length);
       try {
-        await loadTabData("agents", registryId, false);
+        await loadTabData(tab, scope, false);
       } catch (err) {
         setPageError(getErrorMessage(err));
       } finally {
-        setPageLoading(false);
+        if (!silent) setPageLoading(false);
       }
     },
-    [loadTabData, activeDataset?.display_name],
+    [selectedRegistryIds, workspaceOptions.length, loadTabData],
   );
+
+  const hasLoadedOnceRef = useRef(false);
 
   useEffect(() => {
     if (datasetLoading) return;
-    if (activeRegistryId == null) {
+    if (!workspaceOptions.length) {
+      setSelectionReady(false);
       setPageLoading(false);
-      setPageError("No active dataset. Select a dataset in Data Ingestion first.");
+      setPageError("No datasets in workspace. Select datasets in Data Ingestion first.");
       return;
     }
-    void initPage(activeRegistryId);
-  }, [activeRegistryId, datasetLoading, initPage]);
+    const stored = readStoredRegistrySelection(historyUserId);
+    const validStored = (stored ?? []).filter((id) =>
+      workspaceOptions.some((o) => o.registryId === id),
+    );
+    let ids: number[];
+    if (validStored.length) {
+      ids = validStored;
+    } else if (activeRegistryId != null && workspaceOptions.some((o) => o.registryId === activeRegistryId)) {
+      ids = [activeRegistryId];
+    } else {
+      ids = workspaceOptions.map((o) => o.registryId);
+    }
+    setSelectedRegistryIds(ids);
+    setSelectionReady(true);
+  }, [datasetLoading, workspaceOptions, historyUserId, activeRegistryId]);
+
+  useEffect(() => {
+    if (!selectionReady || !selectedRegistryIds.length) return;
+    const silent = hasLoadedOnceRef.current;
+    hasLoadedOnceRef.current = true;
+    void initPage(activeTab, silent);
+  }, [selectionReady, selectedRegistryIds, initPage]);
+
+  const handleSelectionChange = (ids: number[]) => {
+    if (!ids.length) return;
+    setSelectedRegistryIds(ids);
+    writeStoredRegistrySelection(historyUserId, ids);
+    setLoadedTabs(new Set());
+  };
 
   const handleTabChange = (tab: string) => {
     const t = tab as VectorTab;
     setActiveTab(t);
-    if (activeRegistryId != null && !loadedTabs.has(t)) {
-      void loadTabData(t, activeRegistryId, false);
+    if (selectedRegistryIds.length && !loadedTabs.has(t)) {
+      void reloadVectorData(t, false);
     }
   };
 
   useEffect(() => {
-    if (activeRegistryId != null && loadedTabs.has("performance") && activeTab === "performance") {
-      void loadTabData("performance", activeRegistryId, false);
+    if (selectedRegistryIds.length && loadedTabs.has("performance") && activeTab === "performance") {
+      void reloadVectorData("performance", false);
     }
   }, [interval]);
 
@@ -333,54 +417,50 @@ export default function VectorAI() {
   }, []);
 
   const handleRefresh = async () => {
-    if (activeRegistryId == null) return;
+    if (!selectedRegistryIds.length) return;
     setRefreshing(true);
     try {
-      await loadTabData(activeTab, activeRegistryId, true);
+      await reloadVectorData(activeTab, true);
       toast.success("Vector AI data refreshed");
     } finally {
       setRefreshing(false);
     }
   };
 
-  const toggleAgent = async (id: string) => {
-    if (activeRegistryId == null) return;
-    const agent = agents.find((a) => a.id === id);
-    if (!agent) return;
+  const toggleAgent = async (agent: Agent) => {
     const nextStatus = agent.status === "active" ? "paused" : "active";
     try {
       setTabError(null);
-      await vectorApi.toggleAgentStatus(id, nextStatus);
-      await loadTabData("agents", activeRegistryId, false);
+      await vectorApi.toggleAgentStatus(agent.id, nextStatus);
+      await reloadVectorData("agents", false);
     } catch (err) {
       setTabError(getErrorMessage(err));
     }
   };
 
-  const toggleTrigger = async (id: string) => {
-    if (activeRegistryId == null) return;
-    const trigger = triggers.find((t) => t.id === id);
-    if (!trigger) return;
+  const toggleTrigger = async (trigger: Trigger) => {
+    const registryId = resolveRowRegistryId(trigger.registryId);
+    if (registryId == null) return;
     try {
       setTabError(null);
-      await vectorApi.toggleTrigger(activeRegistryId, id, !trigger.enabled);
-      await loadTabData("triggers", activeRegistryId, false);
+      await vectorApi.toggleTrigger(registryId, trigger.id, !trigger.enabled);
+      await reloadVectorData("triggers", false);
     } catch (err) {
       setTabError(getErrorMessage(err));
     }
   };
 
-  const ackAlert = async (id: string) => {
-    if (activeRegistryId == null) return;
-    const alert = alerts.find((a) => a.id === id);
-    if (!alert || (alert.acknowledgeable === false && alert.status !== "open")) return;
+  const ackAlert = async (alert: Alert) => {
+    const registryId = resolveRowRegistryId(alert.registryId);
+    if (registryId == null) return;
+    if (alert.acknowledgeable === false && alert.status !== "open") return;
     try {
       setTabError(null);
-      await vectorApi.acknowledgeAlert(activeRegistryId, id, {
+      await vectorApi.acknowledgeAlert(registryId, alert.id, {
         acknowledgedBy: user?.userId ?? user?.backendUserId ?? user?.email ?? "dashboard-user",
         note: "Acknowledged from Vector AI dashboard",
       });
-      await loadTabData("alerts", activeRegistryId, false);
+      await reloadVectorData("alerts", false);
     } catch (err) {
       setTabError(getErrorMessage(err));
     }
@@ -422,6 +502,48 @@ export default function VectorAI() {
       ? headerKpis?.anomalies24h ?? null
       : null;
   const enabledTriggers = triggers.filter((t) => t.enabled).length;
+  const anomalyColumns = useMemo((): ColumnDef<Anomaly>[] => {
+    const cols: ColumnDef<Anomaly>[] = [];
+    if (isMultiDataset) {
+      cols.push({
+        key: "datasetName",
+        header: "Dataset",
+        render: (v) => <span className="text-xs text-muted-foreground truncate max-w-[140px] block">{String(v ?? "—")}</span>,
+      });
+    }
+    cols.push(
+      { key: "ts", header: "Detected", render: (v) => <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap"><Clock className="h-3 w-3" />{String(v)}</span> },
+      { key: "signal", header: "Signal", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
+      { key: "asset", header: "Asset", render: (v) => <span className="text-xs">{String(v)}</span> },
+      { key: "classification", header: "Type", render: (v) => <Badge variant="outline" className={`text-[10px] capitalize ${classificationBadge[v as string]}`}>{String(v)}</Badge> },
+      {
+        key: "_baseline",
+        header: "Baseline → Observed",
+        render: (_v, an) => (
+          <span className="text-xs whitespace-nowrap">
+            <span className="text-muted-foreground">{(an as Anomaly).baseline}</span>
+            <span className="mx-1.5 text-muted-foreground">→</span>
+            <span className="font-semibold text-foreground">{(an as Anomaly).observed}</span>
+          </span>
+        ),
+      },
+      { key: "zScore", header: "Z-score", render: (v) => <span className="text-xs font-mono font-semibold">{(v as number).toFixed(1)}σ</span> },
+      {
+        key: "confidence",
+        header: "Confidence",
+        minWidth: 120,
+        render: (v) => (
+          <div className="flex items-center gap-2 min-w-[100px]">
+            <Progress value={(v as number) * 100} className="h-1.5 flex-1" />
+            <span className="text-[11px] font-semibold tabular-nums">{Math.round((v as number) * 100)}%</span>
+          </div>
+        ),
+      },
+      { key: "detectedBy", header: "Agent", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
+    );
+    return cols;
+  }, [isMultiDataset]);
+
   const intervalData = useMemo(
     () => ({ points: perfPoints, uplift: perfUplift }),
     [perfPoints, perfUplift],
@@ -447,8 +569,8 @@ export default function VectorAI() {
             <div>
               <h3 className="font-semibold mb-1">Error Loading Vector AI</h3>
               <p className="text-sm text-muted-foreground">{pageError}</p>
-              {activeRegistryId != null && (
-                <Button className="mt-4" size="sm" onClick={() => void initPage(activeRegistryId)}>
+              {selectionReady && selectedRegistryIds.length > 0 && (
+                <Button className="mt-4" size="sm" onClick={() => void initPage(activeTab)}>
                   Retry
                 </Button>
               )}
@@ -477,11 +599,19 @@ export default function VectorAI() {
                 </Badge>
               </div>
               <p className="text-sm opacity-80 mt-0.5">
-                Dataset: {datasetLabel || activeRegistryId} · Continuous monitoring · Anomaly detection · Real-time triggers · Closed-loop execution
+                {datasetLabel ? `Viewing: ${datasetLabel}` : "Select datasets"} · Continuous monitoring · Anomaly detection · Real-time triggers · Closed-loop execution
               </p>
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <VectorDatasetMultiSelect
+              options={workspaceOptions}
+              selectedIds={selectedRegistryIds}
+              onChange={handleSelectionChange}
+              aggregatedLabel={datasetLabel}
+              variant="hero"
+              disabled={refreshing || pageLoading}
+            />
             <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-primary-foreground/10 backdrop-blur ring-1 ring-primary-foreground/20">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
@@ -512,6 +642,18 @@ export default function VectorAI() {
         <Kpi label="Auto-Resolved" value={autoResolvedPct != null ? `${autoResolvedPct}%` : "—"} sub="Closed-loop success" icon={CheckCircle2} accent="bg-success/10 text-success" />
       </div>
 
+      {isMultiDataset && (
+        <Card className="p-3 rounded-card border-accent/30 bg-accent/5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Layers className="h-4 w-4 text-accent shrink-0" />
+            <p className="text-sm">
+              <span className="font-medium">Aggregated view</span>
+              <span className="text-muted-foreground"> — KPIs and lists combine data from {datasetLabel || `${selectedRegistryIds.length} datasets`}.</span>
+            </p>
+          </div>
+        </Card>
+      )}
+
       {tabError && (
         <Card className="p-3 rounded-card border-destructive/30 bg-destructive/5">
           <p className="text-sm text-destructive">{tabError}</p>
@@ -538,7 +680,7 @@ export default function VectorAI() {
             {agents.map((agent) => {
               const Icon = agent.icon;
               return (
-                <Card key={agent.id} className="p-4 rounded-card hover:shadow-md transition-all">
+                <Card key={rowKey(agent.registryId, agent.id)} className="p-4 rounded-card hover:shadow-md transition-all">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-3 min-w-0">
                       <div className="h-10 w-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
@@ -550,12 +692,15 @@ export default function VectorAI() {
                           <Badge variant="outline" className={`text-[10px] capitalize ${statusBadge[agent.status]}`}>
                             {agent.status}
                           </Badge>
+                          {isMultiDataset && agent.datasetName && (
+                            <Badge variant="secondary" className="text-[10px] font-normal">{agent.datasetName}</Badge>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground mt-0.5">{agent.domain} · {agent.scope}</p>
                         <p className="text-xs text-muted-foreground mt-2 leading-relaxed">{agent.description}</p>
                       </div>
                     </div>
-                    <Switch checked={agent.status === "active"} onCheckedChange={() => void toggleAgent(agent.id)} />
+                    <Switch checked={agent.status === "active"} onCheckedChange={() => void toggleAgent(agent)} />
                   </div>
                   <div className="mt-4 pt-3 border-t grid grid-cols-4 gap-3">
                     <div>
@@ -607,38 +752,9 @@ export default function VectorAI() {
           </Card>
 
           <DataTable<Anomaly>
-            columns={[
-              { key: "ts", header: "Detected", render: (v) => <span className="inline-flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap"><Clock className="h-3 w-3" />{String(v)}</span> },
-              { key: "signal", header: "Signal", render: (v) => <span className="text-xs font-medium">{String(v)}</span> },
-              { key: "asset", header: "Asset", render: (v) => <span className="text-xs">{String(v)}</span> },
-              { key: "classification", header: "Type", render: (v) => <Badge variant="outline" className={`text-[10px] capitalize ${classificationBadge[v as string]}`}>{String(v)}</Badge> },
-              {
-                key: "_baseline",
-                header: "Baseline → Observed",
-                render: (_v, an) => (
-                  <span className="text-xs whitespace-nowrap">
-                    <span className="text-muted-foreground">{(an as Anomaly).baseline}</span>
-                    <span className="mx-1.5 text-muted-foreground">→</span>
-                    <span className="font-semibold text-foreground">{(an as Anomaly).observed}</span>
-                  </span>
-                ),
-              },
-              { key: "zScore", header: "Z-score", render: (v) => <span className="text-xs font-mono font-semibold">{(v as number).toFixed(1)}σ</span> },
-              {
-                key: "confidence",
-                header: "Confidence",
-                minWidth: 120,
-                render: (v) => (
-                  <div className="flex items-center gap-2 min-w-[100px]">
-                    <Progress value={(v as number) * 100} className="h-1.5 flex-1" />
-                    <span className="text-[11px] font-semibold tabular-nums">{Math.round((v as number) * 100)}%</span>
-                  </div>
-                ),
-              },
-              { key: "detectedBy", header: "Agent", render: (v) => <span className="text-xs text-muted-foreground">{String(v)}</span> },
-            ] as ColumnDef<Anomaly>[]}
+            columns={anomalyColumns}
             rows={anomalies}
-            getRowKey={(an) => an.id}
+            getRowKey={(an) => rowKey(an.registryId, an.id)}
             emptyMessage="No anomalies detected."
           />
           </>
@@ -695,11 +811,14 @@ export default function VectorAI() {
               {alerts.map((al) => {
                 const s = severityStyles[al.severity];
                 return (
-                  <div key={al.id} className="p-4 flex items-start gap-3 hover:bg-muted/40 transition-colors">
+                  <div key={rowKey(al.registryId, al.id)} className="p-4 flex items-start gap-3 hover:bg-muted/40 transition-colors">
                     <div className={`h-2 w-2 rounded-full mt-2 shrink-0 ${s.dot}`} />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Badge variant="outline" className={`text-[10px] uppercase ${s.bg} ${s.text} border-transparent`}>{al.severity}</Badge>
+                        {isMultiDataset && al.datasetName && (
+                          <Badge variant="secondary" className="text-[10px] font-normal">{al.datasetName}</Badge>
+                        )}
                         <span className="text-xs font-medium">{al.agent}</span>
                         <span className="text-xs text-muted-foreground">· {al.asset}</span>
                         <span className="text-[11px] text-muted-foreground ml-auto flex items-center gap-1"><Clock className="h-3 w-3" />{al.ts}</span>
@@ -720,7 +839,7 @@ export default function VectorAI() {
                     </div>
                     <div className="flex flex-col gap-1 items-end shrink-0">
                       {al.status === "open" && al.acknowledgeable !== false && (
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void ackAlert(al.id)}>Acknowledge</Button>
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => void ackAlert(al)}>Acknowledge</Button>
                       )}
                       {al.status === "acknowledged" && (
                         <Badge variant="outline" className="text-[10px]">Acknowledged</Badge>
@@ -761,7 +880,7 @@ export default function VectorAI() {
             <div className="divide-y">
               {triggers.map((t) => (
                 <div 
-                  key={t.id} 
+                  key={rowKey(t.registryId, t.id)} 
                   className="p-4 flex items-start gap-3 hover:bg-muted/40 transition-colors cursor-pointer"
                   onClick={(e) => {
                     if ((e.target as HTMLElement).closest('[role="switch"]')) return;
@@ -775,6 +894,9 @@ export default function VectorAI() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <h4 className="text-sm font-semibold">{t.name}</h4>
                       <Badge variant="outline" className="text-[10px]">{t.agent}</Badge>
+                      {isMultiDataset && t.datasetName && (
+                        <Badge variant="secondary" className="text-[10px] font-normal">{t.datasetName}</Badge>
+                      )}
                       {t.enabled ? (
                         <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/30">enabled</Badge>
                       ) : (
@@ -798,7 +920,7 @@ export default function VectorAI() {
                   </div>
                   <Switch 
                     checked={t.enabled} 
-                    onCheckedChange={() => void toggleTrigger(t.id)} 
+                    onCheckedChange={() => void toggleTrigger(t)} 
                   />
                 </div>
               ))}

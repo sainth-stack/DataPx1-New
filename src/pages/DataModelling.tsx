@@ -15,7 +15,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import {
   Sparkles, ArrowLeft, ArrowRight, Play, TrendingUp, TrendingDown, Minus,
   BarChart3, CheckCircle2, Lightbulb, Info, Send, ThumbsUp, ThumbsDown,
-  Target, AlertTriangle, Bot, MessageSquareText, TableIcon, Clock, Gauge,
+  Target, AlertTriangle, Bot, MessageSquareText, Clock, Gauge, Wrench, Plus,
 } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -25,15 +25,30 @@ import { ChartInfo } from "@/components/ChartInfo";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { analyticsApi } from "@/lib/api/analytics";
-import { genaiApi, type GenAiParsedReply } from "@/lib/api/genai";
+import {
+  modellingAiApi,
+  ACTION_LABELS,
+  type ModellingAiAction,
+  type ModellingAiContext,
+  type ModellingAiInsight,
+} from "@/lib/api/modellingAi";
 import { useAnalyticsScope, type AnalyticsScopeValue } from "@/hooks/useAnalyticsScope";
+import { useModellingAiHistory, type ModellingAiMessage, type ModellingAiHistoryEntry } from "@/hooks/useModellingAiHistory";
+import { PrescriptiveInsightBubble } from "@/components/modelling/PrescriptiveInsightBubble";
+import { PredictionInsightsPanel, parsePredictionInsights } from "@/components/modelling/PredictionInsightsPanel";
 import {
   mapGeneratedKpis, parseForecastChart, normalizeOutlierReport,
   FREQ_API, PERIOD_DAYS, machineLabel, type GeneratedKpi, type OutlierReport,
 } from "@/lib/analyticsHelpers";
 import { getCorrelationBadgeClasses } from "@/lib/colorThresholds";
 import { useDataset } from "@/contexts/DatasetContext";
-import { roleData, featureImportance, type BotResponse, type RoleKey } from "@/data/machineData";
+import {
+  ModellingSessionProvider,
+  useModellingSession,
+  executeResultToSession,
+  outlierReportToSession,
+} from "@/contexts/ModellingSessionContext";
+import { featureImportance } from "@/data/machineData";
 
 const DEFAULT_KPI_PROMPT = "Generate top 5 KPIs based on the most important operational and sensor metrics in this dataset";
 const KPI_LIMIT = 5;
@@ -57,30 +72,47 @@ function FriendlyInfoCard({ title, children }: { title: string; children: React.
   );
 }
 
-const promptTypeIcon = {
-  text: MessageSquareText,
-  table: TableIcon,
-  chart: BarChart3,
+const ACTION_ICONS: Record<ModellingAiAction, typeof MessageSquareText> = {
+  executive_summary: MessageSquareText,
+  risk_analysis: AlertTriangle,
+  maintenance_recommendations: Wrench,
+  performance_optimization: Gauge,
+  ai_report: Sparkles,
 };
 
-function resolveBotConfig(role: string | string[] | undefined) {
-  const candidates = Array.isArray(role) ? role : role ? [role] : [];
-  for (const r of candidates) {
-    if (r in roleData) return roleData[r as RoleKey].botConfig;
+function buildAiGreeting(context: ModellingAiContext | null, displayName: string | null): string {
+  const name = context?.dataset?.display_name ?? displayName ?? "your dataset";
+  if (!context?.snapshot_summary) {
+    return `Hi! I'm Vector AI. Ask me about machine health, OEE, downtime, or maintenance for ${name}.`;
   }
-  return roleData.datapx_user.botConfig;
+  const rows = context.snapshot_summary.row_count ?? 0;
+  const kpis = context.artifacts?.kpis_count ?? 0;
+  const actions = context.available_actions?.length ?? 0;
+  const parts = [
+    `Hi! I'm Vector AI for ${name}.`,
+    `Dataset has ${rows.toLocaleString()} rows`,
+  ];
+  if (kpis > 0) parts.push(`${kpis} KPIs generated`);
+  const source = context.artifacts?.kpis_source;
+  if (source === "session") parts.push("(from your KPI / Modelling session)");
+  else if (source === "telemetry") parts.push("(derived from dataset telemetry)");
+  if (actions > 0) parts.push(`${actions} prescriptive actions ready`);
+  parts.push("Pick an action from the sidebar or ask a follow-up question.");
+  return parts.join(" ");
 }
 
-interface Message {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
-  type?: "text" | "chart" | "table";
-  response?: BotResponse;
+function insightToMessage(insight: ModellingAiInsight): ModellingAiMessage {
+  return {
+    id: `ai-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    role: "assistant",
+    content: insight.summary ?? "Analysis complete.",
+    insight,
+  };
 }
 
 // ─── KPI Tab ────────────────────────────────────────────────────────────────
 function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; activated?: boolean }) {
+  const { setGeneratedKpis, addExecutedKpi } = useModellingSession();
   const [machineScope, setMachineScope] = useState("all");
   const [selected, setSelected] = useState<GeneratedKpi | null>(null);
   const [prompt, setPrompt] = useState(DEFAULT_KPI_PROMPT);
@@ -111,6 +143,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
         const res = (await analyticsApi.generateKpis(text.trim(), scope.kpiScope(machineScope))) as { kpis?: unknown };
         const mapped = mapGeneratedKpis(res.kpis).slice(0, KPI_LIMIT);
         setKpis(mapped);
+        setGeneratedKpis(mapped);
         kpiCacheKey.current = cacheKey;
         if (!opts?.silent) {
           if (mapped.length) toast.success(`Generated ${mapped.length} KPI${mapped.length === 1 ? "" : "s"}`);
@@ -123,7 +156,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
         setLoadAttempted(true);
       }
     },
-    [scope, machineScope],
+    [scope, machineScope, setGeneratedKpis],
   );
 
   useEffect(() => {
@@ -147,6 +180,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
     try {
       const res = await analyticsApi.executeKpi(kpi.raw, scope.kpiScope(machineScope));
       setExecuteResult(res as Record<string, unknown>);
+      addExecutedKpi(executeResultToSession(kpi, res as Record<string, unknown>));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "KPI execution failed");
       setSelected(null);
@@ -327,6 +361,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
 
 // ─── Modelling Tab ──────────────────────────────────────────────────────────
 function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; activated: boolean }) {
+  const { setForecast, setOutliers, setPrediction } = useModellingSession();
   const [machineId, setMachineId] = useState("");
   const [features, setFeatures] = useState<string[]>([]);
   const [featuresLoading, setFeaturesLoading] = useState(false);
@@ -439,6 +474,14 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
         file_name: mlScope.file_name,
       })) as { rf_result?: string; insights?: unknown };
       setPredictionResult({ result: res.rf_result, insights: res.insights });
+      setPrediction(
+        {
+          target: predTargetCol,
+          result: res.rf_result,
+          at: new Date().toISOString(),
+        },
+        res.insights,
+      );
       toast.success("Prediction complete");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Prediction failed");
@@ -468,6 +511,11 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       setForecastPoints(points);
       setForecastTitle(title ?? null);
       setForecastRun(true);
+      setForecast({
+        column: forecastTarget,
+        frequency: FREQ_API[forecastFreq] ?? "days",
+        period: PERIOD_DAYS[forecastPeriod] ?? 5,
+      });
       toast.success("Forecast generated");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Forecast failed");
@@ -486,6 +534,9 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       const report = normalizeOutlierReport(res);
       setOutlierReport(report);
       setOutlierRun(true);
+      if (report) {
+        setOutliers(outlierReportToSession(report, res as Record<string, unknown>));
+      }
       toast.success("Outlier analysis complete");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Outlier detection failed");
@@ -636,51 +687,42 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               <div className="space-y-4">
                 <Card className="rounded-card border-l-4 border-l-warning p-5 space-y-3">
                   <h3 className="text-sm font-semibold">Prediction Result</h3>
-                  {predictionResult?.result ? (
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-3xl font-bold text-warning">{predictionResult.result}</span>
-                    </div>
-                  ) : (
+                  {!predictionResult?.result && !predictionResult?.insights ? (
                     <p className="text-sm text-muted-foreground">Submit feature values to see the prediction.</p>
+                  ) : (
+                    (() => {
+                      const parsed = parsePredictionInsights(predictionResult?.insights);
+                      if (parsed) {
+                        return (
+                          <PredictionInsightsPanel
+                            insights={parsed}
+                            resultLine={predictionResult?.result}
+                            targetColumn={predTargetCol}
+                          />
+                        );
+                      }
+                      return predictionResult?.result ? (
+                        <p className="text-sm font-medium leading-relaxed">{predictionResult.result}</p>
+                      ) : null;
+                    })()
                   )}
-                  {predictionResult?.insights && typeof predictionResult.insights === "object" && (
-                    <pre className="text-xs bg-muted/30 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap">
-                      {JSON.stringify(predictionResult.insights, null, 2)}
-                    </pre>
-                  )}
-                </Card>
-
-                <Card className="rounded-card border p-5 space-y-3 bg-accent/5">
-                  <div className="flex items-start gap-2">
-                    <Lightbulb className="h-4 w-4 text-accent shrink-0 mt-0.5" />
-                    <div>
-                      <h3 className="text-sm font-semibold">Why This Prediction? (Feature Contributions)</h3>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        The 88% failure probability is driven by these key factors:
-                      </p>
-                      <ul className="mt-2 space-y-1.5 text-xs">
-                        <li className="flex items-start gap-2">
-                          <span className="text-destructive font-semibold min-w-[60px]">+34%</span>
-                          <span className="text-muted-foreground"><strong>Vibration (6.8 mm/s)</strong> - 3.2x above normal baseline (2.1 mm/s). Indicates bearing wear or misalignment.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-warning font-semibold min-w-[60px]">+28%</span>
-                          <span className="text-muted-foreground"><strong>Temperature (96°C)</strong> - Elevated thermal load suggests cooling system degradation.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-warning font-semibold min-w-[60px]">+18%</span>
-                          <span className="text-muted-foreground"><strong>Operating Hours (822h)</strong> - Approaching scheduled maintenance interval (900h).</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                          <span className="text-accent font-semibold min-w-[60px]">+8%</span>
-                          <span className="text-muted-foreground"><strong>Pressure Variance</strong> - Unstable hydraulic pressure pattern detected.</span>
-                        </li>
-                      </ul>
-                    </div>
-                  </div>
                 </Card>
               </div>
             </div>
+
+            {!parsePredictionInsights(predictionResult?.insights) && (
+            <Card className="rounded-card border p-5 space-y-3 bg-accent/5">
+              <div className="flex items-start gap-2">
+                <Lightbulb className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-semibold">Why This Prediction? (Feature Contributions)</h3>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Run a prediction to see AI-generated interpretation, or review feature impact below.
+                  </p>
+                </div>
+              </div>
+            </Card>
+            )}
 
             <Card className="rounded-card p-5">
               <TooltipProvider delayDuration={0}>
@@ -749,54 +791,6 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                   getRowKey={(item) => (item as { feature: string }).feature}
                 />
               </TooltipProvider>
-            </Card>
-
-            <Card className="rounded-card p-5 border-l-4 border-l-primary">
-              <div className="flex items-start gap-3 mb-4">
-                <Clock className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="text-sm font-semibold">Prescriptive Action Timeline</h3>
-                  <p className="text-xs text-muted-foreground mt-1">Based on 88% failure probability, follow these time-bound actions to prevent unplanned downtime:</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="p-4 border-l-4 border-l-destructive bg-destructive/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-destructive" />
-                    <p className="text-xs font-semibold text-destructive">Immediate (0-5 days)</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    <strong>Critical:</strong> Inspect bearing assembly within 24 hours. Reduce operating load by 30%. Schedule emergency maintenance window. Order replacement bearings (lead time: 2-3 days).
-                  </p>
-                </Card>
-                <Card className="p-4 border-l-4 border-l-warning bg-warning/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="h-4 w-4 text-warning" />
-                    <p className="text-xs font-semibold text-warning">5-10 Days</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Complete bearing replacement and alignment. Verify vibration levels return to &lt;2.5 mm/s. Test cooling system and replace thermal paste if needed. Run validation cycle.
-                  </p>
-                </Card>
-                <Card className="p-4 border-l-4 border-l-accent bg-accent/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Gauge className="h-4 w-4 text-accent" />
-                    <p className="text-xs font-semibold text-accent">10-30 Days</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Monitor vibration and temperature trends closely. Update predictive maintenance model with post-repair data. Schedule follow-up inspection at 30-day mark to verify long-term stability.
-                  </p>
-                </Card>
-                <Card className="p-4 border-l-4 border-l-success bg-success/5">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle2 className="h-4 w-4 text-success" />
-                    <p className="text-xs font-semibold text-success">30+ Days</p>
-                  </div>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Return to standard preventive maintenance schedule. Document failure root cause analysis. Update asset reliability database. Estimated cost avoidance: €18,000-€24,000 in downtime.
-                  </p>
-                </Card>
-              </div>
             </Card>
           </Card>
         )}
@@ -1048,68 +1042,184 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
 }
 
 // ─── AI Chatbot Tab ─────────────────────────────────────────────────────────
-function AiPanel() {
+function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; activated?: boolean }) {
   const { user } = useAuth();
   const { workspaceDatasets, activeDatasetId, setActiveDataset, loading: datasetLoading } = useDataset();
-  const botConfig = resolveBotConfig(user?.role);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const { toApiContext, sessionRevision } = useModellingSession();
+  const historyUserId = user?.backendUserId != null ? String(user.backendUserId) : user?.userId;
+  const { entries: historyEntries, saveConversation } = useModellingAiHistory(historyUserId, scope.registryId);
+
+  const [machineScope, setMachineScope] = useState("all");
+  const [aiContext, setAiContext] = useState<ModellingAiContext | null>(null);
+  const [contextLoading, setContextLoading] = useState(false);
+  const [messages, setMessages] = useState<ModellingAiMessage[]>([]);
   const [input, setInput] = useState("");
   const [typing, setTyping] = useState(false);
+  const [runningAction, setRunningAction] = useState<ModellingAiAction | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [parentAction, setParentAction] = useState<ModellingAiAction | null>(null);
+  const conversationIdRef = useRef(`conv-${Date.now()}`);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const loadedScopeKeyRef = useRef<string | null>(null);
+  const loadedSessionRevisionRef = useRef(-1);
+
+  const datasetScope = scope.kpiScope(machineScope);
+  const scopeReady = Boolean(scope.registryId && scope.fileName);
+  const contextKey = scopeReady ? `${scope.registryId}:${scope.fileName}:${machineScope}` : null;
+
+  const resetConversation = useCallback(
+    (ctx: ModellingAiContext | null) => {
+      conversationIdRef.current = `conv-${Date.now()}`;
+      setSessionId(null);
+      setParentAction(null);
+      setMessages([
+        { id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) },
+      ]);
+    },
+    [scope.displayName],
+  );
 
   useEffect(() => {
-    setMessages([{ id: "1", role: "assistant", content: botConfig.greeting, type: "text" }]);
-  }, [user?.role, activeDatasetId, botConfig.greeting]);
+    if (!activated || scope.loading || !contextKey) return;
+
+    const scopeChanged = loadedScopeKeyRef.current !== contextKey;
+    const sessionChanged = loadedSessionRevisionRef.current !== sessionRevision;
+    if (!scopeChanged && !sessionChanged) return;
+
+    let cancelled = false;
+    setContextLoading(true);
+    const apiContext = toApiContext();
+
+    void modellingAiApi
+      .getContext(scope.kpiScope(machineScope), apiContext)
+      .then((ctx) => {
+        if (cancelled) return;
+        loadedScopeKeyRef.current = contextKey;
+        loadedSessionRevisionRef.current = sessionRevision;
+        setAiContext(ctx);
+        if (scopeChanged) {
+          conversationIdRef.current = `conv-${Date.now()}`;
+          setSessionId(null);
+          setParentAction(null);
+          setMessages([
+            { id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) },
+          ]);
+        } else {
+          setMessages((prev) =>
+            prev.length === 1 && prev[0].id === "welcome"
+              ? [{ id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) }]
+              : prev,
+          );
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        if (scopeChanged) loadedScopeKeyRef.current = null;
+        loadedSessionRevisionRef.current = -1;
+        toast.error(err instanceof Error ? err.message : "Failed to load AI context");
+        setAiContext(null);
+        if (scopeChanged) {
+          conversationIdRef.current = `conv-${Date.now()}`;
+          setSessionId(null);
+          setParentAction(null);
+          setMessages([
+            { id: "welcome", role: "assistant", content: buildAiGreeting(null, scope.displayName) },
+          ]);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setContextLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activated, scope.loading, contextKey, sessionRevision, scope.kpiScope, machineScope, scope.displayName, toApiContext]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, typing]);
 
-  const parsedToBotResponse = (parsed: GenAiParsedReply): BotResponse => {
-    if (parsed.chartData?.length) {
-      return {
-        type: "chart",
-        content: parsed.text,
-        chartTitle: parsed.chartTitle ?? "Chart",
-        chartData: parsed.chartData,
-      };
+  const persistHistory = useCallback(
+    (msgs: ModellingAiMessage[], sessId: string | null, parent: ModellingAiAction | null) => {
+      if (!scope.registryId || msgs.filter((m) => m.role === "user").length === 0) return;
+      const firstUser = msgs.find((m) => m.role === "user");
+      saveConversation({
+        id: conversationIdRef.current,
+        sessionId: sessId,
+        parentAction: parent,
+        title: firstUser?.content ?? "New conversation",
+        messages: msgs,
+        registryId: scope.registryId,
+      });
+    },
+    [scope.registryId, saveConversation],
+  );
+
+  const appendAssistant = useCallback(
+    (insight: ModellingAiInsight, msgs: ModellingAiMessage[], sessId: string | null, parent: ModellingAiAction | null) => {
+      const newSessId = insight.session_id ?? sessId;
+      if (insight.session_id) setSessionId(insight.session_id);
+      const aiMsg = insightToMessage(insight);
+      const next = [...msgs, aiMsg];
+      setMessages(next);
+      persistHistory(next, newSessId, parent);
+      return newSessId;
+    },
+    [persistHistory],
+  );
+
+  const runAction = async (action: ModellingAiAction) => {
+    if (!scopeReady || typing) return;
+    const label = ACTION_LABELS[action];
+    const userMsg: ModellingAiMessage = { id: `user-${Date.now()}`, role: "user", content: label };
+    const withUser = [...messages, userMsg];
+    setMessages(withUser);
+    setTyping(true);
+    setRunningAction(action);
+    setParentAction(action);
+    try {
+      const apiContext = toApiContext();
+      const insight = await modellingAiApi.runAction(action, datasetScope, apiContext);
+      appendAssistant(insight, withUser, sessionId, action);
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : "AI insight request failed";
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, role: "assistant", content: errMsg },
+      ]);
+      toast.error(errMsg);
+    } finally {
+      setTyping(false);
+      setRunningAction(null);
     }
-    if (parsed.tableRows?.length) {
-      return {
-        type: "table",
-        content: parsed.text,
-        tableHeaders: parsed.tableHeaders ?? [],
-        tableRows: parsed.tableRows,
-      };
-    }
-    return { type: "text", content: parsed.text };
   };
 
   const handleSend = async () => {
-    if (!input.trim()) return;
-    const userMsg: Message = { id: Date.now().toString(), role: "user", content: input, type: "text" };
-    setMessages((prev) => [...prev, userMsg]);
-    const queryText = input;
+    if (!input.trim() || !scopeReady || typing) return;
+    const userMsg: ModellingAiMessage = { id: `user-${Date.now()}`, role: "user", content: input.trim() };
+    const withUser = [...messages, userMsg];
+    setMessages(withUser);
+    const queryText = input.trim();
     setInput("");
     setTyping(true);
+    const action = parentAction ?? "executive_summary";
+    if (!parentAction) setParentAction(action);
     try {
-      const parsed = await genaiApi.chat(queryText);
-      const response = parsedToBotResponse(parsed);
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: response.content,
-        type: response.type,
-        response,
-      }]);
+      const apiContext = toApiContext();
+      const insight = await modellingAiApi.chat(queryText, datasetScope, {
+        sessionId,
+        parentAction: action,
+        context: apiContext,
+      });
+      appendAssistant(insight, withUser, sessionId, action);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Vector AI request failed";
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: message,
-        type: "text",
-      }]);
+      const errMsg = err instanceof Error ? err.message : "AI chat request failed";
+      setMessages((prev) => [
+        ...prev,
+        { id: `err-${Date.now()}`, role: "assistant", content: errMsg },
+      ]);
+      toast.error(errMsg);
     } finally {
       setTyping(false);
     }
@@ -1118,50 +1228,123 @@ function AiPanel() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSend();
+      void handleSend();
     }
   };
 
-  const startChatFromHistory = (title: string) => {
-    setInput(title);
+  const restoreHistory = (entry: ModellingAiHistoryEntry) => {
+    conversationIdRef.current = entry.id;
+    setMessages(entry.messages);
+    setSessionId(entry.sessionId);
+    setParentAction(entry.parentAction);
   };
+
+  const handleNewChat = () => {
+    resetConversation(aiContext);
+  };
+
+  const availableActions = aiContext?.available_actions ?? [];
 
   return (
     <div className="flex h-[calc(100vh-16rem)] gap-4">
-      <div className="flex w-[280px] shrink-0 flex-col gap-4">
-        <div>
-          <p className="mb-2 text-xs font-medium text-muted-foreground">Suggested Prompts</p>
-          <div className="flex flex-col gap-1.5">
-            {botConfig.suggestedPrompts.map((p) => {
-              const Icon = promptTypeIcon[p.type];
-              return (
-                <button
-                  key={p.text}
-                  onClick={() => setInput(p.text)}
-                  className="flex items-center gap-2 rounded-button border bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-left"
-                >
-                  <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                  <span className="truncate">{p.text}</span>
-                </button>
-              );
-            })}
-          </div>
+      <div className="flex w-[280px] shrink-0 flex-col gap-4 overflow-y-auto">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-medium text-muted-foreground">Suggested Actions</p>
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-xs gap-1" onClick={handleNewChat}>
+            <Plus className="h-3 w-3" /> New
+          </Button>
         </div>
+        <div>
+          {contextLoading ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading actions…
+            </div>
+          ) : availableActions.length ? (
+            <div className="flex flex-col gap-1.5">
+              {availableActions.map((action) => {
+                const Icon = ACTION_ICONS[action];
+                const isRunning = runningAction === action;
+                return (
+                  <button
+                    key={action}
+                    onClick={() => void runAction(action)}
+                    disabled={!scopeReady || typing}
+                    className="flex items-center gap-2 rounded-button border bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-left disabled:opacity-50"
+                  >
+                    {isRunning ? (
+                      <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-primary/70" />
+                    ) : (
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                    )}
+                    <span className="truncate">{ACTION_LABELS[action]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No actions available. Select a dataset first.</p>
+          )}
+        </div>
+
+        {aiContext?.artifacts && (
+          <div className="flex flex-wrap gap-1">
+            {aiContext.artifacts.kpis_generated && (
+              <Badge variant="outline" className="text-[10px]">
+                {aiContext.artifacts.kpis_count ?? 0} KPIs
+                {aiContext.artifacts.kpis_source === "session" ? " (session)" : ""}
+              </Badge>
+            )}
+            {aiContext.artifacts.last_forecast?.column && (
+              <Badge variant="outline" className="text-[10px]">
+                Forecast: {friendlyColumnName(aiContext.artifacts.last_forecast.column)}
+              </Badge>
+            )}
+            {aiContext.artifacts.last_outlier?.count != null && aiContext.artifacts.last_outlier.count > 0 && (
+              <Badge variant="outline" className="text-[10px]">
+                {aiContext.artifacts.last_outlier.count} outliers
+              </Badge>
+            )}
+            {aiContext.artifacts.last_prediction?.result && (
+              <Badge variant="outline" className="text-[10px]">
+                Prediction: {aiContext.artifacts.last_prediction.result}
+              </Badge>
+            )}
+          </div>
+        )}
+
         <div>
           <p className="mb-2 text-xs font-medium text-muted-foreground">Chat History</p>
-          <div className="flex flex-col gap-1">
-            {botConfig.chatHistory.map((chat) => (
-              <button
-                key={chat.id}
-                onClick={() => startChatFromHistory(chat.title)}
-                className="flex items-center gap-2 rounded-button border bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-left"
-              >
-                <Clock className="h-3.5 w-3.5 shrink-0 text-primary/70" />
-                <span className="truncate">{chat.title}</span>
-              </button>
-            ))}
-          </div>
+          {historyEntries.length ? (
+            <div className="flex flex-col gap-1">
+              {historyEntries.map((chat) => (
+                <button
+                  key={chat.id}
+                  onClick={() => restoreHistory(chat)}
+                  className="flex items-center gap-2 rounded-button border bg-card px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-colors text-left"
+                >
+                  <Clock className="h-3.5 w-3.5 shrink-0 text-primary/70" />
+                  <span className="truncate">{chat.title}</span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">No conversations yet.</p>
+          )}
         </div>
+
+        <div>
+          <p className="mb-2 text-xs font-medium text-muted-foreground">Machine Scope</p>
+          <Select value={machineScope} onValueChange={setMachineScope} disabled={scope.loading}>
+            <SelectTrigger className="rounded-input"><SelectValue placeholder="Machine scope" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Machines (Fleet)</SelectItem>
+              {scope.machines.map((m) => (
+                <SelectItem key={m.twin_id} value={m.twin_id}>{machineLabel(m)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <div>
           <p className="mb-2 text-xs font-medium text-muted-foreground">Dataset</p>
           {datasetLoading && !workspaceDatasets.length ? (
@@ -1188,6 +1371,14 @@ function AiPanel() {
 
       <Card className="flex flex-1 flex-col rounded-card overflow-hidden">
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {scope.error && !scopeReady && (
+            <Card className="rounded-card border-dashed p-4 text-sm text-muted-foreground">{scope.error}</Card>
+          )}
+          {contextLoading && messages.length === 0 && (
+            <div className="flex items-center justify-center gap-2 py-12 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading dataset context…
+            </div>
+          )}
           {messages.map((msg) => {
             if (msg.role === "user") {
               return (
@@ -1198,42 +1389,22 @@ function AiPanel() {
                 </div>
               );
             }
-            const resp = msg.response;
             return (
               <div key={msg.id} className="flex justify-start">
                 <div className="max-w-[85%] space-y-3">
-                  <div className="rounded-card bg-card border px-4 py-3 text-sm leading-relaxed">{msg.content}</div>
-                  {resp?.type === "table" && resp.tableHeaders && resp.tableRows && (
-                    <DataTable
-                      columns={resp.tableHeaders.map((h, j) => ({
-                        key: String(j),
-                        header: h,
-                        render: (_v, row) => <span className="text-xs">{String((row as unknown[])[j] ?? "")}</span>,
-                      }) as ColumnDef)}
-                      rows={resp.tableRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
-                      getRowKey={(_r, i) => i}
-                    />
-                  )}
-                  {resp?.type === "chart" && resp.chartData && (
-                    <Card className="rounded-card border p-4">
-                      <h4 className="text-sm font-semibold mb-3">{resp.chartTitle}</h4>
-                      <div className="h-[220px]">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart data={resp.chartData}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                            <XAxis dataKey="name" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                            <YAxis tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" />
-                            <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                            <Bar dataKey="value" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    </Card>
-                  )}
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="h-6 w-6"><ThumbsUp className="h-3 w-3" /></Button>
-                    <Button variant="ghost" size="icon" className="h-6 w-6"><ThumbsDown className="h-3 w-3" /></Button>
+                  <div className="rounded-card bg-card border px-4 py-3 text-sm leading-relaxed">
+                    {msg.insight ? (
+                      <PrescriptiveInsightBubble insight={msg.insight} />
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
+                  {msg.insight && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="h-6 w-6"><ThumbsUp className="h-3 w-3" /></Button>
+                      <Button variant="ghost" size="icon" className="h-6 w-6"><ThumbsDown className="h-3 w-3" /></Button>
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -1257,11 +1428,17 @@ function AiPanel() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about your data… (Shift+Enter for new line)"
+              placeholder={scopeReady ? "Ask about your data… (Shift+Enter for new line)" : "Select a dataset to start chatting"}
               rows={1}
-              className="flex-1 resize-none rounded-input border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              disabled={!scopeReady || typing}
+              className="flex-1 resize-none rounded-input border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
             />
-            <Button onClick={handleSend} size="icon" className="rounded-button shrink-0" disabled={!input.trim() || typing}>
+            <Button
+              onClick={() => void handleSend()}
+              size="icon"
+              className="rounded-button shrink-0"
+              disabled={!input.trim() || typing || !scopeReady}
+            >
               <Send className="h-4 w-4" />
             </Button>
           </div>
@@ -1275,6 +1452,8 @@ function AiPanel() {
 export default function DataModelling() {
   const scope = useAnalyticsScope();
   const [activeTab, setActiveTab] = useState("kpi");
+  const sessionScopeKey =
+    scope.registryId != null && scope.fileName ? `${scope.registryId}:${scope.fileName}` : null;
 
   return (
     <div className="space-y-6">
@@ -1285,17 +1464,19 @@ export default function DataModelling() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="rounded-button">
-          <TabsTrigger value="kpi" className="rounded-button gap-1.5"><Target className="h-3.5 w-3.5" /> KPI</TabsTrigger>
-          <TabsTrigger value="modelling" className="rounded-button gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Modelling</TabsTrigger>
-          <TabsTrigger value="ai" className="rounded-button gap-1.5"><Bot className="h-3.5 w-3.5" /> AI</TabsTrigger>
-        </TabsList>
+      <ModellingSessionProvider scopeKey={sessionScopeKey}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList className="rounded-button">
+            <TabsTrigger value="kpi" className="rounded-button gap-1.5"><Target className="h-3.5 w-3.5" /> KPI</TabsTrigger>
+            <TabsTrigger value="modelling" className="rounded-button gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Modelling</TabsTrigger>
+            <TabsTrigger value="ai" className="rounded-button gap-1.5"><Bot className="h-3.5 w-3.5" /> AI</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="kpi"><KpiPanel scope={scope} activated={activeTab === "kpi"} /></TabsContent>
-        <TabsContent value="modelling"><ModellingPanel scope={scope} activated={activeTab === "modelling"} /></TabsContent>
-        <TabsContent value="ai"><AiPanel /></TabsContent>
-      </Tabs>
+          <TabsContent value="kpi"><KpiPanel scope={scope} activated={activeTab === "kpi"} /></TabsContent>
+          <TabsContent value="modelling"><ModellingPanel scope={scope} activated={activeTab === "modelling"} /></TabsContent>
+          <TabsContent value="ai"><AiPanel scope={scope} activated={activeTab === "ai"} /></TabsContent>
+        </Tabs>
+      </ModellingSessionProvider>
     </div>
   );
 }

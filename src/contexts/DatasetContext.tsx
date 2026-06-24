@@ -27,7 +27,7 @@ interface DatasetContextValue {
   switching: boolean;
   error: string | null;
   setActiveDataset: (datasetId: string) => Promise<void>;
-  refresh: () => Promise<void>;
+  refresh: (options?: { force?: boolean }) => Promise<void>;
 }
 
 const DatasetContext = createContext<DatasetContextValue | undefined>(undefined);
@@ -51,75 +51,101 @@ export function DatasetProvider({ children }: { children: ReactNode }) {
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const hasLoadedOnce = useRef(false);
+  const inflightRefreshRef = useRef<Promise<void> | null>(null);
+  const loadedSessionUserIdRef = useRef<string | null>(null);
 
   const workspaceDatasets = useMemo(
     () => allDatasets.filter((d) => selectedDatasetIds.includes(d.dataset_id)),
     [allDatasets, selectedDatasetIds],
   );
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (options?: { force?: boolean }) => {
+    if (inflightRefreshRef.current) {
+      if (!options?.force) return inflightRefreshRef.current;
+      await inflightRefreshRef.current.catch(() => undefined);
+    }
+
     const isInitial = !hasLoadedOnce.current;
     if (isInitial) setInitialLoading(true);
     else setRefreshing(true);
     setError(null);
-    try {
-      const [listRes, selectedRes] = await Promise.all([
-        datasetsApi.listDatasets(),
-        datasetsApi.getUserSelectedFiles().catch(() => ({ status: false, selected_files: [] as string[] })),
-      ]);
-      const datasets =
-        listRes.status !== false && Array.isArray(listRes.datasets) ? listRes.datasets : [];
-      setAllDatasets(datasets);
 
-      let ids: string[] = [];
-      if (selectedRes.status !== false) {
-        ids = resolveSelectedDatasetIds(datasets, selectedRes);
-      }
+    const task = (async () => {
+      try {
+        const [listRes, selectedRes] = await Promise.all([
+          datasetsApi.listDatasets(),
+          datasetsApi.getUserSelectedFiles().catch(() => ({ status: false, selected_files: [] as string[] })),
+        ]);
+        const datasets =
+          listRes.status !== false && Array.isArray(listRes.datasets) ? listRes.datasets : [];
+        setAllDatasets(datasets);
 
-      if (!ids.length) {
-        try {
-          const stored = localStorage.getItem(SELECTED_DATASETS_KEY);
-          if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed)) ids = parsed.filter((x) => typeof x === "string");
-          }
-        } catch {
-          /* ignore */
+        let ids: string[] = [];
+        if (selectedRes.status !== false) {
+          ids = resolveSelectedDatasetIds(datasets, selectedRes);
         }
-      }
 
-      setSelectedDatasetIds(ids);
-      if (ids.length) localStorage.setItem(SELECTED_DATASETS_KEY, JSON.stringify(ids));
+        if (!ids.length) {
+          try {
+            const stored = localStorage.getItem(SELECTED_DATASETS_KEY);
+            if (stored) {
+              const parsed = JSON.parse(stored);
+              if (Array.isArray(parsed)) ids = parsed.filter((x) => typeof x === "string");
+            }
+          } catch {
+            /* ignore */
+          }
+        }
 
-      const workspace = datasets.filter((d) => ids.includes(d.dataset_id));
-      const active = pickActiveDataset(workspace, ids, readActiveId());
-      setActiveDatasetState(active);
-      if (active) localStorage.setItem(ACTIVE_DATASET_KEY, active.dataset_id);
-      hasLoadedOnce.current = true;
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load datasets");
-      if (isInitial) {
-        setAllDatasets([]);
-        setSelectedDatasetIds([]);
-        setActiveDatasetState(null);
+        setSelectedDatasetIds(ids);
+        if (ids.length) localStorage.setItem(SELECTED_DATASETS_KEY, JSON.stringify(ids));
+
+        const workspace = datasets.filter((d) => ids.includes(d.dataset_id));
+        const active = pickActiveDataset(workspace, ids, readActiveId());
+        setActiveDatasetState((prev) => {
+          if (prev?.dataset_id === active?.dataset_id) return prev;
+          return active;
+        });
+        if (active) localStorage.setItem(ACTIVE_DATASET_KEY, active.dataset_id);
+        hasLoadedOnce.current = true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load datasets");
+        if (isInitial) {
+          setAllDatasets([]);
+          setSelectedDatasetIds([]);
+          setActiveDatasetState(null);
+        }
+      } finally {
+        if (isInitial) setInitialLoading(false);
+        else setRefreshing(false);
+        inflightRefreshRef.current = null;
       }
-    } finally {
-      if (isInitial) setInitialLoading(false);
-      else setRefreshing(false);
-    }
+    })();
+
+    inflightRefreshRef.current = task;
+    return task;
   }, []);
 
+  const sessionUserId = user?.userId ?? null;
+
   useEffect(() => {
-    if (user) void refresh();
-    else {
+    if (!sessionUserId) {
+      loadedSessionUserIdRef.current = null;
+      hasLoadedOnce.current = false;
       setAllDatasets([]);
       setSelectedDatasetIds([]);
       setActiveDatasetState(null);
-      hasLoadedOnce.current = false;
       setInitialLoading(false);
       setRefreshing(false);
+      return;
     }
-  }, [user, refresh]);
+    if (hasLoadedOnce.current && loadedSessionUserIdRef.current === sessionUserId) {
+      return;
+    }
+    void refresh().then(() => {
+      loadedSessionUserIdRef.current = sessionUserId;
+    });
+  }, [sessionUserId, refresh]);
 
   const setActiveDataset = useCallback(
     async (datasetId: string) => {
@@ -179,8 +205,6 @@ export const DATASET_SCOPED_ROUTES = [
   "/data-quality",
   "/dashboard",
   "/data-modelling",
-  "/vector-ai",
-  "/bot",
   "/reports",
 ];
 

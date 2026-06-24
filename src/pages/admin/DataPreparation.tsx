@@ -435,7 +435,7 @@ export default function DataPreparation() {
     setRegistering(true);
     try {
       await datasetsApi.updateUserSelectedFiles([displayName]);
-      await refreshDatasets();
+      await refreshDatasets({ force: true });
       toast.success("Dataset registered for Data Ingestion", {
         description: `${generateResult?.row_count?.toLocaleString() ?? 0} rows • ${displayName}`,
         action: {

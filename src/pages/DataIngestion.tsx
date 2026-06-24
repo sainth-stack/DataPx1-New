@@ -233,7 +233,7 @@ export default function DataIngestion() {
         const names = mapIdsToDisplayNames(datasets, next);
         await datasetsApi.updateUserSelectedFiles(names);
         toast.success("Dataset removed from selection");
-        await refreshDatasetContext();
+        await refreshDatasetContext({ force: true });
       } catch (err) {
         toast.error(apiError(err, "Failed to remove dataset"));
         setSelectedDatasetIds(prev);
@@ -250,7 +250,7 @@ export default function DataIngestion() {
       localStorage.setItem(SELECTED_DATASETS_KEY, JSON.stringify([]));
       localStorage.removeItem(ACTIVE_DATASET_KEY);
       toast.success("All selections cleared");
-      await refreshDatasetContext();
+      await refreshDatasetContext({ force: true });
     } catch (err) {
       toast.error(apiError(err, "Failed to clear selection"));
     }
@@ -291,7 +291,7 @@ export default function DataIngestion() {
         try {
           const names = mapIdsToDisplayNames(refreshed, merged);
           await datasetsApi.updateUserSelectedFiles(names);
-          await refreshDatasetContext();
+          await refreshDatasetContext({ force: true });
         } catch {
           /* selection saved locally */
         }
@@ -363,7 +363,7 @@ export default function DataIngestion() {
           }
         }
         setAddDialogTab("datasets");
-        await refreshDatasetContext();
+        await refreshDatasetContext({ force: true });
       }
       if (res.failed.length) {
         toast.error(res.failed.map((f) => `${f.file}: ${f.message}`).join("; "));
@@ -402,7 +402,7 @@ export default function DataIngestion() {
       await datasetsApi.updateUserSelectedFiles(names);
       toast.success(res.message || `Deleted ${target.display_name}`);
       await loadDatasets();
-      await refreshDatasetContext();
+      await refreshDatasetContext({ force: true });
     } catch (err) {
       toast.error(apiError(err, "Failed to delete dataset"));
     } finally {
@@ -462,7 +462,7 @@ export default function DataIngestion() {
       }
       setShowAddSourceDialog(false);
       toast.success(`${dialogDraftIds.length} dataset${dialogDraftIds.length === 1 ? "" : "s"} selected`);
-      await refreshDatasetContext();
+      await refreshDatasetContext({ force: true });
     } catch (err) {
       toast.error(apiError(err, "Failed to save selection"));
     } finally {
