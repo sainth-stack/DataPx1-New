@@ -55,7 +55,11 @@ export function VectorDatasetMultiSelect({
           variant="outline"
           size="sm"
           disabled={disabled || !options.length}
-          className={cn("h-9 max-w-[240px] justify-between font-normal", triggerClass)}
+          className={cn(
+            "h-9 justify-between font-normal",
+            variant === "hero" ? "w-[220px]" : "max-w-[240px]",
+            triggerClass,
+          )}
         >
           <span className="flex items-center gap-2 min-w-0">
             <Database className="h-3.5 w-3.5 shrink-0 opacity-80" />
@@ -118,7 +122,7 @@ export function VectorDatasetMultiSelect({
           )}
         </div>
         <p className="border-t px-3 py-2 text-[10px] text-muted-foreground">
-          Selection applies to Vector AI only (aggregated view).
+          Selection applies to Vector Agents only (aggregated view).
         </p>
       </PopoverContent>
     </Popover>

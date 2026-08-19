@@ -19,8 +19,8 @@ const routeNames: Record<string, string> = {
   "/data-preparation": "Data Preparation",
   "/data-processing": "Data Processing",
   "/digital-twin": "Digital Twin",
-  "/vector-ai": "Vector AI",
-  "/bot": "Vector AI",
+  "/vector-ai": "Vector Agents",
+  "/bot": "Vector Agents",
   "/data-quality": "Data Quality Assessment",
   "/data-modelling": "Data Modelling",
   "/reports": "Reports",
@@ -28,8 +28,8 @@ const routeNames: Record<string, string> = {
 };
 
 const segmentLabels: Record<string, string> = {
-  bot: "Vector AI",
-  "vector-ai": "Vector AI",
+  bot: "Vector Agents",
+  "vector-ai": "Vector Agents",
 };
 
 export function AppHeader() {

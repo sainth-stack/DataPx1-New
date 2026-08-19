@@ -19,6 +19,7 @@ import {
   getCorrelationBadgeClasses,
   correlationThresholds,
 } from "@/lib/colorThresholds";
+import { friendlyColumnName } from "@/lib/friendlyLabels";
 
 interface OverviewData {
   total_rows: number;
@@ -298,7 +299,7 @@ export default function DataProcessing() {
                   key: String(j),
                   header: (
                     <div className="flex flex-col gap-1">
-                      <span>{col}</span>
+                      <span>{friendlyColumnName(col)}</span>
                       {rawPreview?.columns[col] && (
                         <Badge variant="outline" className="text-[10px] w-fit font-normal">{rawPreview.columns[col]}</Badge>
                       )}
@@ -321,7 +322,7 @@ export default function DataProcessing() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {schemaColumns.map((col) => (
                 <div key={col.feature} className="rounded-lg border p-3">
-                  <p className="text-xs font-medium truncate">{col.feature}</p>
+                  <p className="text-xs font-medium truncate">{friendlyColumnName(col.feature)}</p>
                   <Badge variant="outline" className="mt-1 text-[10px] bg-muted">{col.dtype}</Badge>
                   {col.missing_pct > 0 && (
                     <p className="text-[10px] text-warning mt-1">{col.missing_pct.toFixed(1)}% missing</p>
@@ -338,7 +339,7 @@ export default function DataProcessing() {
             <h2 className="text-sm font-semibold mb-3">Descriptive Statistics</h2>
             <DataTable
               columns={[
-                { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
+                { key: "feature", header: "Feature", render: (v) => <span className="font-medium text-xs">{friendlyColumnName(String(v))}</span> },
                 { key: "mean", header: "Mean", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
                 { key: "median", header: "Median", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
                 { key: "std", header: "Std Dev", align: "right", render: (v) => <span className="font-mono text-xs">{formatStat(v as number)}</span> },
@@ -371,7 +372,7 @@ export default function DataProcessing() {
                     className="text-xs border rounded px-2 py-1 bg-background"
                   >
                     {features.numeric_features.map((f) => (
-                      <option value={f} key={f}>{f}</option>
+                      <option value={f} key={f}>{friendlyColumnName(f)}</option>
                     ))}
                   </select>
                 </div>
@@ -398,7 +399,7 @@ export default function DataProcessing() {
                           tick={{ fontSize: 11 }}
                           stroke="hsl(var(--muted-foreground))"
                           label={{
-                            value: distribution.feature_label ?? selectedFeature,
+                            value: distribution.feature_label ?? friendlyColumnName(selectedFeature),
                             position: "insideBottom",
                             offset: -5,
                             style: { fontSize: 11 },
@@ -482,7 +483,7 @@ export default function DataProcessing() {
               <Card className="rounded-card p-5">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-sm font-semibold">
-                    Feature Importance vs {targetColumn.replace(/_/g, " ")}
+                    Feature Importance vs {friendlyColumnName(targetColumn)}
                   </h2>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className="text-[10px] bg-success/10 text-success border-success/20">
@@ -510,7 +511,8 @@ export default function DataProcessing() {
                         type="category"
                         tick={{ fontSize: 11 }}
                         stroke="hsl(var(--muted-foreground))"
-                        width={120}
+                        width={140}
+                        tickFormatter={(v) => friendlyColumnName(String(v))}
                       />
                       <Tooltip
                         contentStyle={{
@@ -533,7 +535,7 @@ export default function DataProcessing() {
               <Card className="rounded-card p-5">
                 <TooltipProvider delayDuration={0}>
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold">Correlation with Target ({targetColumn})</h3>
+                    <h3 className="text-sm font-semibold">Correlation with Target ({friendlyColumnName(targetColumn)})</h3>
                     <UITooltip>
                       <TooltipTrigger asChild>
                         <button
@@ -562,7 +564,7 @@ export default function DataProcessing() {
                   </div>
                   <DataTable
                     columns={[
-                      { key: "feature", header: "Feature", render: (v) => <span className="font-medium font-mono text-xs">{String(v)}</span> },
+                      { key: "feature", header: "Feature", render: (v) => <span className="font-medium text-xs">{friendlyColumnName(String(v))}</span> },
                       { key: "importance", header: "Importance", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
                       { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
                       {
@@ -584,7 +586,7 @@ export default function DataProcessing() {
                               <TooltipContent side="top" className="max-w-xs z-[100]">
                                 <p className="text-xs font-semibold">{strengthLabel} {negative ? "Negative" : "Positive"} Correlation</p>
                                 <p className="text-[11px] text-muted-foreground mt-1">
-                                  {feat.feature} has a {strengthLabel.toLowerCase()} {negative ? "negative" : "positive"} relationship with the target.
+                                  {friendlyColumnName(feat.feature)} has a {strengthLabel.toLowerCase()} {negative ? "negative" : "positive"} relationship with the target.
                                   {negative ? " When this feature increases, the target tends to decrease." : " When this feature increases, the target tends to increase."}
                                 </p>
                               </TooltipContent>

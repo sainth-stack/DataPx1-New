@@ -49,14 +49,10 @@ import {
   outlierReportToSession,
 } from "@/contexts/ModellingSessionContext";
 import { featureImportance } from "@/data/machineData";
+import { friendlyColumnName } from "@/lib/friendlyLabels";
 
 const DEFAULT_KPI_PROMPT = "Generate top 5 KPIs based on the most important operational and sensor metrics in this dataset";
 const KPI_LIMIT = 5;
-
-function friendlyColumnName(col: string): string {
-  if (!col) return "—";
-  return col.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 function FriendlyInfoCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -214,7 +210,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
           <div className="flex items-start justify-between gap-4">
             <div>
               <h2 className="text-xl font-semibold">{selected.title}</h2>
-              <p className="text-xs text-muted-foreground mt-1">Column: <span className="font-mono text-foreground">{selected.column}</span></p>
+              <p className="text-xs text-muted-foreground mt-1">Column: <span className="text-foreground">{friendlyColumnName(selected.column)}</span></p>
             </div>
             <Badge variant="outline" className="text-xs">{scopeLabel}</Badge>
           </div>
@@ -339,7 +335,7 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
               <div className="border-t pt-3 space-y-2">
                 <div className="flex gap-3 text-xs">
                   <span className="text-muted-foreground w-16 shrink-0">Column:</span>
-                  <span className="font-mono text-foreground">{kpi.column}</span>
+                  <span className="text-foreground">{friendlyColumnName(kpi.column)}</span>
                 </div>
                 <div className="flex gap-3 text-xs">
                   <span className="text-muted-foreground w-16 shrink-0">Logic:</span>
@@ -599,7 +595,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       <TabsList className="rounded-button">
         <TabsTrigger value="prediction" className="rounded-button">Prediction</TabsTrigger>
         <TabsTrigger value="forecast" className="rounded-button">Forecast</TabsTrigger>
-        <TabsTrigger value="outlier" className="rounded-button">Unusual readings</TabsTrigger>
+        <TabsTrigger value="outlier" className="rounded-button">Outliers</TabsTrigger>
       </TabsList>
 
       {/* Prediction */}
@@ -668,10 +664,10 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
             </div>
             <div className="grid gap-6 lg:grid-cols-2">
               <Card className="rounded-card border p-5 space-y-4">
-                <h3 className="text-sm font-semibold">Enter Values for {predTargetCol} Prediction:</h3>
+                <h3 className="text-sm font-semibold">Enter Values for {friendlyColumnName(predTargetCol)} Prediction:</h3>
                 {rfCols.map((field) => (
                   <div key={field}>
-                    <Label className="text-xs font-medium capitalize">{field.replace(/_/g, " ")}</Label>
+                    <Label className="text-xs font-medium">{friendlyColumnName(field)}</Label>
                     <Input
                       value={predForm[field] ?? ""}
                       onChange={(e) => setPredForm((f) => ({ ...f, [field]: e.target.value }))}
@@ -939,7 +935,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       <TabsContent value="outlier" className="space-y-6">
         <Card className="rounded-card p-6 space-y-5">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Unusual readings</h2>
+            <h2 className="text-lg font-semibold mb-2">Outliers</h2>
             <p className="text-sm text-muted-foreground">
               Find sensor values that look abnormally high or low compared to normal operation
             </p>
@@ -984,7 +980,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
           </div>
           <Button onClick={() => void runOutlier()} disabled={outlierLoading || featuresLoading || !featuresReady || !outlierTarget} className="w-full rounded-button bg-primary hover:bg-primary/90" size="lg">
             {outlierLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
-            Find unusual readings
+            Detect outliers
           </Button>
         </Card>
 
@@ -1005,7 +1001,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               <>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card className="p-4 border-l-4 border-l-destructive bg-destructive/5">
-                    <p className="text-xs text-muted-foreground">Unusual readings</p>
+                    <p className="text-xs text-muted-foreground">Outliers</p>
                     <p className="text-3xl font-bold text-destructive mt-1">{outlierReport.summary.outlier_count.toLocaleString()}</p>
                   </Card>
                   <Card className="p-4 border-l-4 border-l-warning bg-warning/5">

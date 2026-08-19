@@ -23,7 +23,7 @@ const mainNavItems = [
   { title: "Data Quality Assessment", path: "/data-quality", icon: ShieldCheck, disabled: false },
   { title: "Dashboard", path: "/dashboard", icon: LayoutDashboard, disabled: false },
   { title: "Data Modelling", path: "/data-modelling", icon: Boxes, disabled: false },
-  { title: "Vector AI", path: "/vector-ai", icon: Sparkles, disabled: false },
+  { title: "Vector Agents", path: "/vector-ai", icon: Sparkles, disabled: false },
   { title: "Reports", path: "/reports", icon: FileText, disabled: false },
   { title: "Administration", path: "/admin", icon: Shield, disabled: false },
 ];

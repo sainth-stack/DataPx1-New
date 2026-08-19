@@ -539,7 +539,6 @@ export default function Reports() {
       ) : activeRegistryId ? (
         <div className="text-xs text-muted-foreground rounded-lg border bg-muted/30 px-3 py-2 w-fit">
           Active dataset: <span className="font-semibold text-foreground">{displayName ?? activeRegistryId}</span>
-          <span className="text-muted-foreground/60"> (registry #{activeRegistryId})</span>
         </div>
       ) : null}
 

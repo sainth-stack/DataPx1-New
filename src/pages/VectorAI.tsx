@@ -237,7 +237,7 @@ export default function VectorAI() {
   const [pulse, setPulse] = useState(0);
 
   useEffect(() => {
-    document.title = "Vector AI | Datapx1";
+    document.title = "Vector Agents | Datapx1";
     return () => {
       document.title = "Datapx1 — Industrial Decision Intelligence";
     };
@@ -421,7 +421,7 @@ export default function VectorAI() {
     setRefreshing(true);
     try {
       await reloadVectorData(activeTab, true);
-      toast.success("Vector AI data refreshed");
+      toast.success("Vector Agents data refreshed");
     } finally {
       setRefreshing(false);
     }
@@ -458,7 +458,7 @@ export default function VectorAI() {
       setTabError(null);
       await vectorApi.acknowledgeAlert(registryId, alert.id, {
         acknowledgedBy: user?.userId ?? user?.backendUserId ?? user?.email ?? "dashboard-user",
-        note: "Acknowledged from Vector AI dashboard",
+        note: "Acknowledged from Vector Agents dashboard",
       });
       await reloadVectorData("alerts", false);
     } catch (err) {
@@ -554,7 +554,7 @@ export default function VectorAI() {
       <div className="flex items-center justify-center h-[60vh]">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-accent" />
-          <p className="text-sm text-muted-foreground">Loading Vector AI...</p>
+          <p className="text-sm text-muted-foreground">Loading Vector Agents...</p>
         </div>
       </div>
     );
@@ -567,7 +567,7 @@ export default function VectorAI() {
           <div className="flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold mb-1">Error Loading Vector AI</h3>
+              <h3 className="font-semibold mb-1">Error Loading Vector Agents</h3>
               <p className="text-sm text-muted-foreground">{pageError}</p>
               {selectionReady && selectedRegistryIds.length > 0 && (
                 <Button className="mt-4" size="sm" onClick={() => void initPage(activeTab)}>
@@ -586,24 +586,24 @@ export default function VectorAI() {
       {/* HERO HEADER */}
       <Card className="p-5 rounded-card border-0 bg-gradient-to-br from-primary via-primary to-sidebar-deep text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 opacity-20" style={{ backgroundImage: "radial-gradient(circle at 20% 20%, hsl(var(--accent)) 0%, transparent 40%), radial-gradient(circle at 80% 80%, hsl(var(--teal)) 0%, transparent 40%)" }} />
-        <div className="relative flex items-center justify-between flex-wrap gap-4">
-          <div className="flex items-center gap-4">
-            <div className="h-12 w-12 rounded-xl bg-primary-foreground/10 backdrop-blur flex items-center justify-center ring-1 ring-primary-foreground/20">
+        <div className="relative space-y-3">
+          <div className="flex items-start gap-4">
+            <div className="h-12 w-12 shrink-0 rounded-xl bg-primary-foreground/10 backdrop-blur flex items-center justify-center ring-1 ring-primary-foreground/20">
               <Sparkles className="h-6 w-6" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold tracking-tight">Vector AI</h1>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-bold tracking-tight">Vector Agents</h1>
                 <Badge variant="outline" className="bg-primary-foreground/10 text-primary-foreground border-primary-foreground/30 text-[10px]">
                   Autonomous Intelligence Layer
                 </Badge>
               </div>
-              <p className="text-sm opacity-80 mt-0.5">
-                {datasetLabel ? `Viewing: ${datasetLabel}` : "Select datasets"} · Continuous monitoring · Anomaly detection · Real-time triggers · Closed-loop execution
+              <p className="text-sm opacity-80 mt-0.5 min-h-[1.25rem]">
+                {datasetLabel ? `Viewing: ${datasetLabel}` : "Select datasets"} · Continuous monitoring · Outliers · Real-time triggers · Closed-loop execution
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap min-h-9 pl-16">
             <VectorDatasetMultiSelect
               options={workspaceOptions}
               selectedIds={selectedRegistryIds}
@@ -612,20 +612,20 @@ export default function VectorAI() {
               variant="hero"
               disabled={refreshing || pageLoading}
             />
-            <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-primary-foreground/10 backdrop-blur ring-1 ring-primary-foreground/20">
+            <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full bg-primary-foreground/10 backdrop-blur ring-1 ring-primary-foreground/20 shrink-0">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75" />
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-success" />
               </span>
               <span className="font-medium">Live</span>
-              <span className="opacity-70">· synced {pulse}s ago</span>
+              <span className="opacity-70 whitespace-nowrap">· synced {pulse}s ago</span>
             </div>
             <Button
               variant="outline"
               size="sm"
               disabled={refreshing}
               onClick={() => void handleRefresh()}
-              className="gap-2 bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
+              className="gap-2 shrink-0 bg-primary-foreground/10 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/20 hover:text-primary-foreground"
             >
               <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
             </Button>
