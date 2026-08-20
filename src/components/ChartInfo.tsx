@@ -16,6 +16,12 @@ export interface ChartInfoProps {
   thresholds?: { color: string; label: string }[];
   /** Free-form extra note */
   note?: string;
+  /** GPT / heuristic IPR from dashboard APIs */
+  ipr?: {
+    inferences?: string[];
+    problems?: string[];
+    recommendations?: string[];
+  } | null;
   /** Short title in the tooltip header */
   title?: string;
   className?: string;
@@ -33,9 +39,15 @@ export function ChartInfo({
   yAxis,
   thresholds,
   note,
+  ipr,
   title = "How to read this chart",
   className,
 }: ChartInfoProps) {
+  const hasIpr =
+    (ipr?.inferences?.length ?? 0) > 0 ||
+    (ipr?.problems?.length ?? 0) > 0 ||
+    (ipr?.recommendations?.length ?? 0) > 0;
+
   return (
     <TooltipProvider delayDuration={120}>
       <Tooltip>
@@ -65,6 +77,40 @@ export function ChartInfo({
               </p>
             )}
             {note && <p>{note}</p>}
+            {hasIpr && (
+              <div className="space-y-2 pt-1">
+                {(ipr?.inferences?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground">What we see</p>
+                    <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                      {ipr!.inferences!.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(ipr?.problems?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground">Issues to watch</p>
+                    <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                      {ipr!.problems!.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {(ipr?.recommendations?.length ?? 0) > 0 && (
+                  <div>
+                    <p className="font-medium text-foreground">Recommended actions</p>
+                    <ul className="mt-1 space-y-0.5 list-disc pl-4">
+                      {ipr!.recommendations!.map((item, i) => (
+                        <li key={i}>{item}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           {thresholds && thresholds.length > 0 && (
             <div className="pt-1 border-t border-border/60 space-y-1">

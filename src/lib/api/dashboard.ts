@@ -4,6 +4,7 @@ export interface FleetDashboardParams {
   fleet_id: string;
   registry_id?: string | number;
   view?: "fleet" | "machine" | "correlation";
+  use_gpt_ipr?: boolean;
 }
 
 export interface MachineDashboardParams {
@@ -15,7 +16,9 @@ export interface MachineDashboardParams {
 
 export const dashboardApi = {
   async getFleetDashboard(params: FleetDashboardParams) {
-    const { data } = await apiClient.get("/api/dashboard/fleet", { params });
+    const { data } = await apiClient.get("/api/dashboard/fleet", {
+      params: { ...params, use_gpt_ipr: params.use_gpt_ipr !== false },
+    });
     return data.data;
   },
 

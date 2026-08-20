@@ -17,14 +17,17 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { useMachineScope } from "@/contexts/MachineScopeContext";
 import { useDataset } from "@/contexts/DatasetContext";
 import { ChartInfo } from "@/components/ChartInfo";
+import { DashboardIprPanel } from "@/components/dashboard/DashboardIprPanel";
+import { DashboardPlotCard } from "@/components/dashboard/DashboardPlotCard";
 import { digitalTwinApi } from "@/lib/api/digitalTwin";
 import { dashboardApi } from "@/lib/api/dashboard";
+import type { DashboardIpr, DashboardPlot } from "@/lib/dashboardIpr";
+import { normalizeDashboardIpr } from "@/lib/dashboardIpr";
 import {
   getRiskLevel,
   getRiskExplanation,
   calculateRemainingUsefulTime,
   riskThresholds,
-  performanceThresholds,
 } from "@/lib/colorThresholds";
 
 type MachineStatus = "Running" | "Idle" | "Maintenance" | "Fault";
@@ -42,6 +45,7 @@ interface FleetRosterItem {
   risk: number;
   riskScore?: number;
   next_pm: string;
+  ipr?: DashboardIpr;
 }
 
 interface FleetDashboardData {
@@ -53,7 +57,9 @@ interface FleetDashboardData {
     avg_fleet_oee: number;
     at_risk_machines: number;
   };
-  oee_by_machine: {
+  ipr?: DashboardIpr;
+  plots?: DashboardPlot[];
+  oee_by_machine: DashboardPlot & {
     labels: string[];
     values: number[];
     target: number;
@@ -64,6 +70,8 @@ interface MachineDashboardData {
   selected_machine_id: string;
   selected_display_id: string;
   selected_twin_id: string;
+  ipr?: DashboardIpr;
+  plots?: DashboardPlot[];
   machine: {
     equipment_name?: string;
     model?: string;
@@ -258,14 +266,24 @@ function FleetView({
     atRisk: fleetData.kpis.at_risk_machines,
   };
 
-  const oeeChartData = (fleetData.oee_by_machine?.labels || []).map((label, index) => ({
-    name: label,
-    oee: fleetData.oee_by_machine.values[index] ?? 0,
-    target: fleetData.oee_by_machine.target ?? 80,
-  }));
+  const oeePlot: DashboardPlot = {
+    plot_id: "oee_by_machine",
+    type: "bar",
+    title: fleetData.oee_by_machine?.title ?? "OEE by Machine",
+    target: fleetData.oee_by_machine?.target ?? 80,
+    labels: fleetData.oee_by_machine?.labels ?? [],
+    values: fleetData.oee_by_machine?.values ?? [],
+    colors: fleetData.oee_by_machine?.colors,
+    description: fleetData.oee_by_machine?.description,
+    ipr: fleetData.oee_by_machine?.ipr ?? fleetData.ipr,
+  };
+
+  const sensorPlots = (fleetData.plots ?? []).filter((plot) => plot.plot_id !== "oee_by_machine");
 
   return (
     <div className="space-y-6">
+      <DashboardIprPanel ipr={fleetData.ipr} />
+
       {/* Fleet KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
@@ -285,35 +303,15 @@ function FleetView({
       </div>
 
       {/* OEE per Machine */}
-      <Card className="rounded-card p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold">OEE by Machine</h2>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="text-[10px]">Target: 80%</Badge>
-            <ChartInfo
-              xAxis="Machine ID"
-              yAxis="Overall Equipment Effectiveness (OEE) percentage (0-100%)"
-              thresholds={performanceThresholds}
-              note="OEE combines Availability × Performance × Quality. Target is 80% (world-class manufacturing)."
-            />
-          </div>
+      <DashboardPlotCard plot={oeePlot} targetBadge />
+
+      {sensorPlots.length > 0 && (
+        <div className="grid lg:grid-cols-2 gap-6">
+          {sensorPlots.map((plot) => (
+            <DashboardPlotCard key={plot.plot_id ?? plot.title} plot={plot} />
+          ))}
         </div>
-        <div className="h-[260px]">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={oeeChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" label={{ value: "Machine ID", position: "insideBottom", offset: -5, style: { fontSize: 11 } }} />
-              <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" domain={[0, 100]} label={{ value: "OEE (%)", angle: -90, position: "insideLeft", style: { fontSize: 11 } }} />
-              <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-              <Bar dataKey="oee" radius={[6, 6, 0, 0]}>
-                {oeeChartData.map((d, i) => (
-                  <Cell key={i} fill={d.oee >= 80 ? "hsl(var(--success))" : d.oee >= 60 ? "hsl(var(--warning))" : "hsl(var(--destructive))"} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </Card>
+      )}
 
       {/* Filters + Table */}
       <div className="flex flex-wrap items-center gap-3">
@@ -440,9 +438,18 @@ function SingleMachineView({
   ];
 
   const remainingTime = calculateRemainingUsefulTime(machine.riskScore, machine.uptimeHours, machine.lastMaintenance);
+  const machineIpr = machineData?.ipr ?? rosterItem.ipr;
+  const apiPlots = machineData?.plots ?? [];
+  const useApiPlots = apiPlots.length > 0;
 
   return (
     <div className="space-y-6">
+      <DashboardIprPanel
+        ipr={machineIpr}
+        title="Machine insights"
+        subtitle="What your equipment data means right now"
+      />
+
       {/* Machine header */}
       <Card className="rounded-card p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -526,6 +533,12 @@ function SingleMachineView({
 
       {/* Telemetry charts */}
       <div className="grid lg:grid-cols-2 gap-6">
+        {useApiPlots ? (
+          apiPlots.map((plot) => (
+            <DashboardPlotCard key={plot.plot_id ?? plot.title} plot={plot} />
+          ))
+        ) : (
+          <>
         <Card className="rounded-card p-5">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -534,6 +547,7 @@ function SingleMachineView({
             <ChartInfo
               xAxis="Time (last 24 hours)"
               yAxis="Temperature in degrees Celsius (°C)"
+              ipr={normalizeDashboardIpr(machineIpr)}
               note="Shows bearing/motor temperature trends. Sustained high temps indicate cooling issues or bearing wear."
             />
           </div>
@@ -564,6 +578,7 @@ function SingleMachineView({
             <ChartInfo
               xAxis="Time (last 24 hours)"
               yAxis="Vibration amplitude in mm/s (RMS)"
+              ipr={normalizeDashboardIpr(machineIpr)}
               note="Tracks mechanical vibration levels. Increasing trends indicate bearing wear, misalignment, or imbalance."
             />
           </div>
@@ -588,6 +603,7 @@ function SingleMachineView({
             <ChartInfo
               xAxis="Time (last 24 hours)"
               yAxis="Production output in units per hour"
+              ipr={normalizeDashboardIpr(machineIpr)}
               note="Measures actual production throughput. Drops indicate performance issues, stoppages, or quality problems."
             />
           </div>
@@ -603,6 +619,8 @@ function SingleMachineView({
             </ResponsiveContainer>
           </div>
         </Card>
+          </>
+        )}
 
         <Card className="rounded-card p-5">
           <h3 className="text-sm font-semibold mb-3 flex items-center gap-2">
@@ -734,6 +752,7 @@ export default function Dashboard() {
             fleet_id: fleet.fleet_id,
             registry_id: fleet.registry_id ?? activeRegistryId,
             view: "correlation",
+            use_gpt_ipr: true,
           });
           if (cancelled) return;
           setFleetData(data as FleetDashboardData);
@@ -746,6 +765,7 @@ export default function Dashboard() {
             fleet_id: fleet.fleet_id,
             registry_id: fleet.registry_id ?? activeRegistryId,
             view: "machine",
+            use_gpt_ipr: true,
           });
           if (cancelled) return;
           setFleetData(data as FleetDashboardData);

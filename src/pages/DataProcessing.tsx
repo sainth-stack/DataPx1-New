@@ -12,11 +12,8 @@ import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger }
 import { ChartInfo } from "@/components/ChartInfo";
 import { useDataset } from "@/contexts/DatasetContext";
 import { dataProcessingApi } from "@/lib/api/dataProcessing";
-import { cn } from "@/lib/utils";
 import {
   getCorrelationColor,
-  getCorrelationStrength,
-  getCorrelationBadgeClasses,
   correlationThresholds,
 } from "@/lib/colorThresholds";
 import { friendlyColumnName } from "@/lib/friendlyLabels";
@@ -567,33 +564,6 @@ export default function DataProcessing() {
                       { key: "feature", header: "Feature", render: (v) => <span className="font-medium text-xs">{friendlyColumnName(String(v))}</span> },
                       { key: "importance", header: "Importance", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
                       { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
-                      {
-                        key: "_strength",
-                        header: "Strength & Impact",
-                        render: (_v, f) => {
-                          const feat = f as { feature: string; correlation: number };
-                          const negative = feat.correlation < 0;
-                          const strengthLabel = getCorrelationStrength(feat.correlation);
-                          return (
-                            <UITooltip>
-                              <TooltipTrigger asChild>
-                                <span tabIndex={0} className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                                  <Badge variant="outline" className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(feat.correlation))}>
-                                    {strengthLabel} {negative ? "▼" : "▲"}
-                                  </Badge>
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs z-[100]">
-                                <p className="text-xs font-semibold">{strengthLabel} {negative ? "Negative" : "Positive"} Correlation</p>
-                                <p className="text-[11px] text-muted-foreground mt-1">
-                                  {friendlyColumnName(feat.feature)} has a {strengthLabel.toLowerCase()} {negative ? "negative" : "positive"} relationship with the target.
-                                  {negative ? " When this feature increases, the target tends to decrease." : " When this feature increases, the target tends to increase."}
-                                </p>
-                              </TooltipContent>
-                            </UITooltip>
-                          );
-                        },
-                      },
                     ] as ColumnDef[]}
                     rows={featureAnalysis.features}
                     getRowKey={(f) => (f as { feature: string }).feature}
