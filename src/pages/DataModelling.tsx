@@ -36,8 +36,9 @@ import { useAnalyticsScope, type AnalyticsScopeValue } from "@/hooks/useAnalytic
 import { useModellingAiHistory, type ModellingAiMessage, type ModellingAiHistoryEntry } from "@/hooks/useModellingAiHistory";
 import { PrescriptiveInsightBubble } from "@/components/modelling/PrescriptiveInsightBubble";
 import { PredictionInsightsPanel, parsePredictionInsights } from "@/components/modelling/PredictionInsightsPanel";
+import { normalizeDashboardIpr } from "@/lib/dashboardIpr";
 import {
-  mapGeneratedKpis, parseForecastChart, normalizeOutlierReport,
+  mapGeneratedKpis, parseForecastChart, parseKpiExecuteChart, normalizeOutlierReport,
   FREQ_API, PERIOD_DAYS, machineLabel, type GeneratedKpi, type OutlierReport,
 } from "@/lib/analyticsHelpers";
 import { getCorrelationBadgeClasses } from "@/lib/colorThresholds";
@@ -196,9 +197,16 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
   }
 
   if (selected) {
-    const chartPoints =
-      (executeResult?.chart as { points?: { name: string; value: number }[] } | undefined)?.points ??
-      (Array.isArray(executeResult?.plots) ? executeResult.plots : null);
+    const chartPoints = parseKpiExecuteChart(executeResult);
+    const chartMeta = executeResult?.chart as {
+      title?: string;
+      x_axis_label?: string;
+      y_axis_label?: string;
+      unit?: string;
+      description?: string;
+      ipr?: { inferences?: string[]; problems?: string[]; recommendations?: string[] };
+    } | undefined;
+    const chartIpr = normalizeDashboardIpr(chartMeta?.ipr);
 
     return (
       <div className="space-y-6">
@@ -222,38 +230,48 @@ function KpiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; act
             <Loader2 className="h-5 w-5 animate-spin" /> Running KPI analysis…
           </div>
         ) : (
-          <div className="grid lg:grid-cols-2 gap-6">
-            <Card className="rounded-card p-5 min-w-0 overflow-hidden">
-              <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-                <BarChart3 className="h-4 w-4 text-accent" /> KPI Chart
-              </h3>
-              {Array.isArray(chartPoints) && chartPoints.length > 0 ? (
-                <div className="h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={chartPoints}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                      <XAxis dataKey="name" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <YAxis tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                      <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                      <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fill="hsl(var(--primary))" fillOpacity={0.2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground py-8 text-center">No chart data returned from API.</p>
-              )}
-            </Card>
-            <Card className="rounded-card p-5 space-y-3 min-w-0 overflow-hidden">
+          <Card className="rounded-card p-5 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between mb-3 gap-2">
               <h3 className="text-sm font-semibold flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary" /> Generated Code & Output
+                <BarChart3 className="h-4 w-4 text-accent" /> {chartMeta?.title ?? "KPI Chart"}
               </h3>
-              {executeResult?.code ? (
-                <pre className="text-[11px] bg-muted/40 rounded-lg p-3 overflow-x-auto max-h-[480px] whitespace-pre-wrap">{String(executeResult.code)}</pre>
-              ) : (
-                <p className="text-sm text-muted-foreground">No code or output returned from the API.</p>
-              )}
-            </Card>
-          </div>
+              <ChartInfo
+                title="What this chart tells you"
+                xAxis={chartMeta?.x_axis_label ?? "Time / category"}
+                yAxis={`${chartMeta?.y_axis_label ?? "Value"}${chartMeta?.unit ? ` (${chartMeta.unit})` : ""}`}
+                note={chartMeta?.description ?? selected.logic}
+                ipr={chartIpr}
+              />
+            </div>
+            {chartPoints.length > 0 ? (
+              <div className="h-[260px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartPoints}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                    <XAxis
+                      dataKey="name"
+                      tick={{ fontSize: 10 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      interval="preserveStartEnd"
+                      angle={-35}
+                      textAnchor="end"
+                      height={56}
+                      label={chartMeta?.x_axis_label ? { value: chartMeta.x_axis_label, position: "insideBottom", offset: -40, style: { fontSize: 11 } } : undefined}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11 }}
+                      stroke="hsl(var(--muted-foreground))"
+                      label={chartMeta?.y_axis_label ? { value: chartMeta.y_axis_label, angle: -90, position: "insideLeft", style: { fontSize: 11 } } : undefined}
+                    />
+                    <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
+                    <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} fill="hsl(var(--primary))" fillOpacity={0.2} name={chartMeta?.y_axis_label ?? "Value"} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground py-8 text-center">No chart data returned from API.</p>
+            )}
+          </Card>
         )}
       </div>
     );
@@ -768,7 +786,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                             <TooltipTrigger asChild>
                               <span tabIndex={0} className="inline-flex cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
                                 <Badge variant="outline" className={cn("text-[10px] font-semibold", getCorrelationBadgeClasses(it.correlation))}>
-                                  {strengthLevel} ▼
+                                  {strengthLevel}
                                 </Badge>
                               </span>
                             </TooltipTrigger>

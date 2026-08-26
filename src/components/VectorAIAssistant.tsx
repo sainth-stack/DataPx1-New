@@ -212,8 +212,9 @@ export function VectorAIAssistant() {
           {needsEnrichment && (
             <div className="px-3 py-2 bg-warning/10 border-b border-warning/30 flex items-center gap-2">
               <ShieldCheck className="h-3.5 w-3.5 text-warning shrink-0" />
-              <p className="text-[11px] text-warning-foreground/90">
-                Data quality <span className="font-semibold text-warning">{dataQualityPct}%</span> — enrichment recommended to reach {syntheticPct}%.
+              <p className="text-[11px] text-foreground/90">
+                Data quality <span className="font-semibold text-warning">{dataQualityPct}%</span> — enrichment recommended to reach{" "}
+                <span className="font-semibold text-warning">{syntheticPct}%</span>.
               </p>
             </div>
           )}

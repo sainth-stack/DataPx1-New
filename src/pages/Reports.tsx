@@ -180,10 +180,14 @@ export default function Reports() {
   }, []);
 
   const loadAgents = useCallback(async (force = false) => {
+    if (!activeRegistryId) {
+      patchTab("agents", { loaded: true, loading: false, error: null });
+      return;
+    }
     if (tabState.agents.loading || (tabState.agents.loaded && !force)) return;
     patchTab("agents", { loading: true, error: null });
     try {
-      const res = await reportsApi.getAgentIntelligence({});
+      const res = await reportsApi.getAgentIntelligence(activeRegistryId);
       const records = (res.data?.records ?? []) as Record<string, unknown>[];
       const mapped = mapReportRows("agents", records) as AgentLog[];
       setAgentLogs(mapped);
@@ -201,7 +205,7 @@ export default function Reports() {
     } catch (err) {
       patchTab("agents", { loading: false, error: reportsApi.extractMessage(err) });
     }
-  }, [patchTab, tabState.agents.loading, tabState.agents.loaded]);
+  }, [activeRegistryId, patchTab, tabState.agents.loading, tabState.agents.loaded]);
 
   const loadPerf = useCallback(async (force = false) => {
     if (!activeRegistryId) {
@@ -261,7 +265,7 @@ export default function Reports() {
   }, [activeRegistryId, patchTab, tabState.sensors.loading, tabState.sensors.loaded]);
 
   const loadCustomReports = useCallback(async (force = false) => {
-    if (customLoading && !force) return;
+    if (customLoading || (customLoaded && !force)) return;
     setCustomLoading(true);
     setCustomError(null);
     try {
@@ -285,7 +289,7 @@ export default function Reports() {
     } finally {
       setCustomLoading(false);
     }
-  }, [customLoading, selectedCols]);
+  }, [customLoading, customLoaded, selectedCols]);
 
   const prevRegistryRef = useRef<number | null>(null);
   useEffect(() => {
@@ -305,10 +309,12 @@ export default function Reports() {
         perf: { loaded: false, loading: false, error: null, meta: defaultTabMeta.perf },
         sensors: { loaded: false, loading: false, error: null, meta: defaultTabMeta.sensors },
       });
+      setCustomLoaded(false);
+      if (activeTab === "agents" && activeRegistryId) void loadAgents(true);
       if (activeTab === "perf" && activeRegistryId) void loadPerf(true);
       if (activeTab === "sensors" && activeRegistryId) void loadSensors(true);
     }
-  }, [activeRegistryId, datasetLoading, activeTab, loadPerf, loadSensors]);
+  }, [activeRegistryId, datasetLoading, activeTab, loadAgents, loadPerf, loadSensors]);
 
   const handleRefreshAll = async () => {
     if (!activeRegistryId) {

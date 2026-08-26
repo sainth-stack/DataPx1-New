@@ -154,3 +154,79 @@ export function normalizeOutlierReport(data: unknown): OutlierReport | null {
 export function machineLabel(m: { machine_serial?: string; twin_id: string; machine_id?: string }) {
   return `${m.machine_serial || m.twin_id} · ${m.machine_id || m.twin_id}`;
 }
+
+export interface KpiChartPoint {
+  name: string;
+  value: number;
+}
+
+/** Normalize KPI execute API chart payload into Recharts-friendly points. */
+export function parseKpiExecuteChart(result: Record<string, unknown> | null | undefined): KpiChartPoint[] {
+  if (!result) return [];
+
+  const chart = result.chart as Record<string, unknown> | undefined;
+  if (!chart) {
+    if (Array.isArray(result.plots)) {
+      return (result.plots as KpiChartPoint[]).filter((p) => !Number.isNaN(Number(p.value)));
+    }
+    return [];
+  }
+
+  const legacyPoints = chart.points;
+  if (Array.isArray(legacyPoints) && legacyPoints.length) {
+    return legacyPoints
+      .map((p) => {
+        const pt = p as { name?: string; label?: string; value?: number };
+        return {
+          name: String(pt.name ?? pt.label ?? ""),
+          value: Number(pt.value),
+        };
+      })
+      .filter((p) => !Number.isNaN(p.value));
+  }
+
+  const labels =
+    (chart.x_labels as string[] | undefined) ??
+    (chart.labels as string[] | undefined) ??
+    [];
+  let values = chart.values as number[] | undefined;
+  if (!values?.length && Array.isArray(chart.series)) {
+    values = (chart.series as { values?: number[] }[])[0]?.values;
+  }
+
+  if (!labels.length || !values?.length) return [];
+
+  return labels
+    .map((label, i) => ({
+      name: String(label),
+      value: Number(values![i]),
+    }))
+    .filter((p) => !Number.isNaN(p.value));
+}
+
+export interface ParsedKpiCodeOutput {
+  title: string | null;
+  code: string;
+  output: string | null;
+}
+
+/** Split KPI execute API `code` field (HTML-wrapped) into title, Python code, and stdout. */
+export function parseKpiGeneratedCode(raw: string): ParsedKpiCodeOutput {
+  let text = raw.trim().replace(/\s*<hr\s*\/?>\s*$/i, "");
+
+  let title: string | null = null;
+  const titleMatch = text.match(/^<b>(.*?)<\/b>\s*/i);
+  if (titleMatch) {
+    title = titleMatch[1].trim();
+    text = text.slice(titleMatch[0].length);
+  }
+
+  let output: string | null = null;
+  const outputMatch = text.match(/\s*<b>Output:\s*([\s\S]*?)<\/b>\s*$/i);
+  if (outputMatch) {
+    output = outputMatch[1].trim();
+    text = text.slice(0, outputMatch.index);
+  }
+
+  return { title, code: text.trim(), output };
+}

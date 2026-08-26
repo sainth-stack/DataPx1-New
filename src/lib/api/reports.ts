@@ -4,8 +4,10 @@ import { extractApiMessage } from "./scope";
 export const reportsApi = {
   extractMessage: extractApiMessage,
 
-  async getAgentIntelligence(params: Record<string, unknown>) {
-    const { data } = await apiClient.get("/api/reports/agent-intelligence", { params });
+  async getAgentIntelligence(registryId: number | string, params: Record<string, unknown> = {}) {
+    const { data } = await apiClient.get("/api/reports/agent-intelligence", {
+      params: { registry_id: registryId, ...params },
+    });
     if (!data.success) throw new Error(data.message ?? "Failed to load agent intelligence report");
     return data;
   },
