@@ -48,6 +48,7 @@ interface ModellingSessionState {
 }
 
 interface ModellingSessionContextValue {
+  /** Full KPI / modelling session — use only for prescriptive actions, not free-form AI chat. */
   toApiContext: () => ModellingAiSessionContext;
   sessionRevision: number;
   setGeneratedKpis: (kpis: GeneratedKpi[]) => void;

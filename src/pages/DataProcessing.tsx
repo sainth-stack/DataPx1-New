@@ -302,7 +302,7 @@ export default function DataProcessing() {
                       )}
                     </div>
                   ),
-                  render: (_v, row) => formatCell((row as unknown[])[j], rawPreview?.columns[col]),
+                  render: (v) => formatCell(v, rawPreview?.columns[col]),
                 }) as ColumnDef)}
                 rows={rawRows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
                 getRowKey={(_r, i) => i}

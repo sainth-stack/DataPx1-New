@@ -843,11 +843,9 @@ export default function DataPreparation() {
                     columns={tableColumns.map((c, j) => ({
                       key: String(j),
                       header: <span className="text-[10px] whitespace-nowrap">{c}</span>,
-                      render: (_v, row) => {
-                        const arr = Array.isArray(row) ? row : [];
-                        const cell = arr[j];
-                        return <span className="text-[11px] whitespace-nowrap font-mono">{cell == null ? "" : String(cell)}</span>;
-                      },
+                      render: (v) => (
+                        <span className="text-[11px] whitespace-nowrap font-mono">{v == null ? "" : String(v)}</span>
+                      ),
                     }) as ColumnDef)}
                     rows={previewRows.map((row) => Array.isArray(row) ? Object.fromEntries(row.map((v, j) => [String(j), v])) : {})}
                     emptyMessage="Preview unavailable — use Export to download full file."

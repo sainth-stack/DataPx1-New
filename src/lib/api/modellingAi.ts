@@ -16,6 +16,19 @@ export const ACTION_LABELS: Record<ModellingAiAction, string> = {
   ai_report: "Generate full AI report",
 };
 
+/** Sidebar / insights actions only — excludes free-form `chat` from context API. */
+export const PRESCRIPTIVE_ACTIONS: ModellingAiAction[] = [
+  "executive_summary",
+  "risk_analysis",
+  "maintenance_recommendations",
+  "performance_optimization",
+  "ai_report",
+];
+
+export function isPrescriptiveAction(action: string): action is ModellingAiAction {
+  return (PRESCRIPTIVE_ACTIONS as readonly string[]).includes(action);
+}
+
 export interface ModellingAiIpr {
   inferences: string[];
   problems: string[];
@@ -81,7 +94,7 @@ export interface ModellingAiContext {
     date_range?: (string | null)[];
     top_sensors?: string[];
   };
-  available_actions?: ModellingAiAction[];
+  available_actions?: Array<ModellingAiAction | "chat">;
 }
 
 export interface ModellingAiSessionContext {

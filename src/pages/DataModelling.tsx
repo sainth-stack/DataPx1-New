@@ -28,6 +28,7 @@ import { analyticsApi } from "@/lib/api/analytics";
 import {
   modellingAiApi,
   ACTION_LABELS,
+  isPrescriptiveAction,
   type ModellingAiAction,
   type ModellingAiContext,
   type ModellingAiInsight,
@@ -84,7 +85,7 @@ function buildAiGreeting(context: ModellingAiContext | null, displayName: string
   }
   const rows = context.snapshot_summary.row_count ?? 0;
   const kpis = context.artifacts?.kpis_count ?? 0;
-  const actions = context.available_actions?.length ?? 0;
+  const actions = context.available_actions?.filter(isPrescriptiveAction).length ?? 0;
   const parts = [
     `Hi! I'm Vector AI for ${name}.`,
     `Dataset has ${rows.toLocaleString()} rows`,
@@ -1059,7 +1060,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
 function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; activated?: boolean }) {
   const { user } = useAuth();
   const { workspaceDatasets, activeDatasetId, setActiveDataset, loading: datasetLoading } = useDataset();
-  const { toApiContext, sessionRevision } = useModellingSession();
+  const { toApiContext } = useModellingSession();
   const historyUserId = user?.backendUserId != null ? String(user.backendUserId) : user?.userId;
   const { entries: historyEntries, saveConversation } = useModellingAiHistory(historyUserId, scope.registryId);
 
@@ -1075,7 +1076,6 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
   const conversationIdRef = useRef(`conv-${Date.now()}`);
   const bottomRef = useRef<HTMLDivElement>(null);
   const loadedScopeKeyRef = useRef<string | null>(null);
-  const loadedSessionRevisionRef = useRef(-1);
 
   const datasetScope = scope.kpiScope(machineScope);
   const scopeReady = Boolean(scope.registryId && scope.fileName);
@@ -1097,49 +1097,35 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
     if (!activated || scope.loading || !contextKey) return;
 
     const scopeChanged = loadedScopeKeyRef.current !== contextKey;
-    const sessionChanged = loadedSessionRevisionRef.current !== sessionRevision;
-    if (!scopeChanged && !sessionChanged) return;
+    if (!scopeChanged) return;
 
     let cancelled = false;
     setContextLoading(true);
-    const apiContext = toApiContext();
 
     void modellingAiApi
-      .getContext(scope.kpiScope(machineScope), apiContext)
+      .getContext(scope.kpiScope(machineScope))
       .then((ctx) => {
         if (cancelled) return;
         loadedScopeKeyRef.current = contextKey;
-        loadedSessionRevisionRef.current = sessionRevision;
         setAiContext(ctx);
-        if (scopeChanged) {
-          conversationIdRef.current = `conv-${Date.now()}`;
-          setSessionId(null);
-          setParentAction(null);
-          setMessages([
-            { id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) },
-          ]);
-        } else {
-          setMessages((prev) =>
-            prev.length === 1 && prev[0].id === "welcome"
-              ? [{ id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) }]
-              : prev,
-          );
-        }
+        conversationIdRef.current = `conv-${Date.now()}`;
+        setSessionId(null);
+        setParentAction(null);
+        setMessages([
+          { id: "welcome", role: "assistant", content: buildAiGreeting(ctx, scope.displayName) },
+        ]);
       })
       .catch((err) => {
         if (cancelled) return;
-        if (scopeChanged) loadedScopeKeyRef.current = null;
-        loadedSessionRevisionRef.current = -1;
+        loadedScopeKeyRef.current = null;
         toast.error(err instanceof Error ? err.message : "Failed to load AI context");
         setAiContext(null);
-        if (scopeChanged) {
-          conversationIdRef.current = `conv-${Date.now()}`;
-          setSessionId(null);
-          setParentAction(null);
-          setMessages([
-            { id: "welcome", role: "assistant", content: buildAiGreeting(null, scope.displayName) },
-          ]);
-        }
+        conversationIdRef.current = `conv-${Date.now()}`;
+        setSessionId(null);
+        setParentAction(null);
+        setMessages([
+          { id: "welcome", role: "assistant", content: buildAiGreeting(null, scope.displayName) },
+        ]);
       })
       .finally(() => {
         if (!cancelled) setContextLoading(false);
@@ -1148,7 +1134,7 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
     return () => {
       cancelled = true;
     };
-  }, [activated, scope.loading, contextKey, sessionRevision, scope.kpiScope, machineScope, scope.displayName, toApiContext]);
+  }, [activated, scope.loading, contextKey, scope.kpiScope, machineScope, scope.displayName]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1217,16 +1203,12 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
     const queryText = input.trim();
     setInput("");
     setTyping(true);
-    const action = parentAction ?? "executive_summary";
-    if (!parentAction) setParentAction(action);
     try {
-      const apiContext = toApiContext();
       const insight = await modellingAiApi.chat(queryText, datasetScope, {
         sessionId,
-        parentAction: action,
-        context: apiContext,
+        parentAction,
       });
-      appendAssistant(insight, withUser, sessionId, action);
+      appendAssistant(insight, withUser, sessionId, parentAction);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : "AI chat request failed";
       setMessages((prev) => [
@@ -1257,7 +1239,7 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
     resetConversation(aiContext);
   };
 
-  const availableActions = aiContext?.available_actions ?? [];
+  const availableActions = (aiContext?.available_actions ?? []).filter(isPrescriptiveAction);
 
   return (
     <div className="flex h-[calc(100vh-16rem)] gap-4">
@@ -1276,7 +1258,7 @@ function AiPanel({ scope, activated = true }: { scope: AnalyticsScopeValue; acti
           ) : availableActions.length ? (
             <div className="flex flex-col gap-1.5">
               {availableActions.map((action) => {
-                const Icon = ACTION_ICONS[action];
+                const Icon = ACTION_ICONS[action] ?? MessageSquareText;
                 const isRunning = runningAction === action;
                 return (
                   <button

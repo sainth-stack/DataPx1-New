@@ -1299,10 +1299,9 @@ export default function DataIngestion() {
                       <span className="block text-[10px] font-normal text-muted-foreground">{previewData.columns[col]}</span>
                     </span>
                   ),
-                  render: (_v, row) => {
-                    const cell = (row as unknown[])[j];
-                    return <span className="text-xs max-w-[200px] truncate block">{cell == null ? "—" : String(cell)}</span>;
-                  },
+                  render: (v) => (
+                    <span className="text-xs max-w-[200px] truncate block">{v == null ? "—" : String(v)}</span>
+                  ),
                 }) as ColumnDef)}
                 rows={previewData.rows.map((row) => Object.fromEntries(row.map((v, j) => [String(j), v])))}
                 emptyMessage="No rows in this page"
