@@ -22,7 +22,6 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer, Area, AreaChart,
 } from "recharts";
 import { ChartInfo } from "@/components/ChartInfo";
-import { DashboardIprPanel } from "@/components/dashboard/DashboardIprPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { analyticsApi } from "@/lib/api/analytics";
@@ -400,7 +399,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
   const [forecastPoints, setForecastPoints] = useState<{ name: string; value: number }[]>([]);
   const [forecastTitle, setForecastTitle] = useState<string | null>(null);
   const [forecastIpr, setForecastIpr] = useState<DashboardIpr | null>(null);
-  const [forecastTrendNote, setForecastTrendNote] = useState<string | null>(null);
+  const [forecastTrendInterpretation, setForecastTrendInterpretation] = useState<string | null>(null);
   const [forecastChartMeta, setForecastChartMeta] = useState<Omit<ForecastChartMeta, "ipr"> | null>(null);
 
   const [outlierTarget, setOutlierTarget] = useState("");
@@ -516,7 +515,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
     setForecastPoints([]);
     setForecastTitle(null);
     setForecastIpr(null);
-    setForecastTrendNote(null);
+    setForecastTrendInterpretation(null);
     setForecastChartMeta(null);
     try {
       const res = await analyticsApi.trainArima(
@@ -538,7 +537,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
           parsed.chartMeta?.ipr ?? (res as { ipr?: DashboardIpr }).ipr,
         ),
       );
-      setForecastTrendNote(parsed.trendNote ?? null);
+      setForecastTrendInterpretation(parsed.trendInterpretation ?? null);
       setForecastRun(true);
       setForecast({
         column: forecastTarget,
@@ -607,7 +606,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               setPredictionResult(null);
               setForecastPoints([]);
               setForecastIpr(null);
-              setForecastTrendNote(null);
+              setForecastTrendInterpretation(null);
               setForecastChartMeta(null);
               setOutlierReport(null);
             }}
@@ -934,7 +933,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                     title="What this forecast tells you"
                     xAxis={forecastChartMeta?.x_axis_label ?? "Date / time"}
                     yAxis={`${forecastChartMeta?.y_axis_label ?? friendlyColumnName(forecastTarget)}${forecastChartMeta?.unit ? ` (${forecastChartMeta.unit})` : ""}`}
-                    note={forecastTrendNote ?? forecastChartMeta?.description ?? "Use this trend to plan maintenance windows, staffing, and capacity."}
+                    note={forecastChartMeta?.description ?? "Use this trend to plan maintenance windows, staffing, and capacity."}
                     ipr={forecastIpr}
                   />
                 </div>
@@ -962,22 +961,9 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                {forecastIpr ? (
-                  <div className="mt-4">
-                    <DashboardIprPanel
-                      ipr={forecastIpr}
-                      title="Forecast insights"
-                      subtitle={`What the ${friendlyColumnName(forecastTarget)} trend means for this machine`}
-                      compact
-                    />
-                  </div>
-                ) : forecastTrendNote ? (
+                {forecastTrendInterpretation && (
                   <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                    <p><strong>Interpretation:</strong> {forecastTrendNote}</p>
-                  </div>
-                ) : (
-                  <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                    <p><strong>Interpretation:</strong> Chart shows time-series forecast with confidence intervals. Use this to plan production schedules, identify capacity constraints, and allocate resources efficiently.</p>
+                    <p><strong>Interpretation:</strong> {forecastTrendInterpretation.replace(/`/g, "")}</p>
                   </div>
                 )}
               </Card>

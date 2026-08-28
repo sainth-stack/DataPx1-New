@@ -221,7 +221,7 @@ export interface ParsedForecastResult {
   points: KpiChartPoint[];
   title?: string;
   chartMeta?: ForecastChartMeta;
-  trendNote?: string | null;
+  trendInterpretation?: string | null;
 }
 
 /** Normalize ARIMA forecast API payload (chart + Plotly fallback) for the Modelling UI. */
@@ -259,15 +259,14 @@ export function parseForecastResponse(
       }
     : undefined;
 
-  const trendNote =
-    (typeof chart?.description === "string" ? chart.description : null) ??
-    (typeof res.trend_interpretation === "string" ? res.trend_interpretation : null);
+  const trendInterpretation =
+    typeof res.trend_interpretation === "string" ? res.trend_interpretation : null;
 
   return {
     points,
     title: chartMeta?.title ?? plotlyParsed.title,
     chartMeta,
-    trendNote,
+    trendInterpretation,
   };
 }
 
