@@ -22,6 +22,7 @@ import {
   Tooltip as RechartsTooltip, ResponsiveContainer, Area, AreaChart,
 } from "recharts";
 import { ChartInfo } from "@/components/ChartInfo";
+import { DashboardIprPanel } from "@/components/dashboard/DashboardIprPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { analyticsApi } from "@/lib/api/analytics";
@@ -37,7 +38,7 @@ import { useAnalyticsScope, type AnalyticsScopeValue } from "@/hooks/useAnalytic
 import { useModellingAiHistory, type ModellingAiMessage, type ModellingAiHistoryEntry } from "@/hooks/useModellingAiHistory";
 import { PrescriptiveInsightBubble } from "@/components/modelling/PrescriptiveInsightBubble";
 import { PredictionInsightsPanel, parsePredictionInsights } from "@/components/modelling/PredictionInsightsPanel";
-import { normalizeDashboardIpr } from "@/lib/dashboardIpr";
+import { normalizeDashboardIpr, type DashboardIpr } from "@/lib/dashboardIpr";
 import {
   mapGeneratedKpis, parseForecastChart, parseKpiExecuteChart, normalizeOutlierReport,
   FREQ_API, PERIOD_DAYS, machineLabel, type GeneratedKpi, type OutlierReport,
@@ -398,6 +399,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
   const [forecastLoading, setForecastLoading] = useState(false);
   const [forecastPoints, setForecastPoints] = useState<{ name: string; value: number }[]>([]);
   const [forecastTitle, setForecastTitle] = useState<string | null>(null);
+  const [forecastIpr, setForecastIpr] = useState<DashboardIpr | null>(null);
+  const [forecastTrendNote, setForecastTrendNote] = useState<string | null>(null);
 
   const [outlierTarget, setOutlierTarget] = useState("");
   const [outlierRun, setOutlierRun] = useState(false);
@@ -511,6 +514,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
     setForecastLoading(true);
     setForecastPoints([]);
     setForecastTitle(null);
+    setForecastIpr(null);
+    setForecastTrendNote(null);
     try {
       const res = await analyticsApi.trainArima(
         forecastTarget,
@@ -525,6 +530,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
       }
       setForecastPoints(points);
       setForecastTitle(title ?? null);
+      setForecastIpr(normalizeDashboardIpr(res.ipr as DashboardIpr | undefined));
+      setForecastTrendNote(typeof res.trend_interpretation === "string" ? res.trend_interpretation : null);
       setForecastRun(true);
       setForecast({
         column: forecastTarget,
@@ -592,6 +599,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               setOutlierRun(false);
               setPredictionResult(null);
               setForecastPoints([]);
+              setForecastIpr(null);
+              setForecastTrendNote(null);
               setOutlierReport(null);
             }}
           >
@@ -914,7 +923,8 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                   <ChartInfo
                     xAxis="Date"
                     yAxis={friendlyColumnName(forecastTarget)}
-                    note="Use this trend to plan maintenance windows, staffing, and capacity."
+                    note={forecastTrendNote ?? "Use this trend to plan maintenance windows, staffing, and capacity."}
+                    ipr={forecastIpr}
                   />
                 </div>
                 <div className="h-[300px]">
@@ -922,7 +932,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                     <LineChart data={forecastPoints}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis 
-                        dataKey="date" 
+                        dataKey="name" 
                         tick={{ fontSize: 11 }} 
                         stroke="hsl(var(--muted-foreground))" 
                         angle={-30} 
@@ -934,16 +944,31 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                         tick={{ fontSize: 11 }} 
                         stroke="hsl(var(--muted-foreground))" 
                         domain={["dataMin - 1", "dataMax + 1"]}
-                        label={{ value: "Units/Hour", angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
+                        label={{ value: friendlyColumnName(forecastTarget), angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
                       />
                       <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
-                      <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} name="Fleet Output (units/hr)" />
+                      <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} name={friendlyColumnName(forecastTarget)} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
-                <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
-                  <p><strong>Interpretation:</strong> Chart shows time-series forecast with confidence intervals. Use this to plan production schedules, identify capacity constraints, and allocate resources efficiently.</p>
-                </div>
+                {forecastIpr ? (
+                  <div className="mt-4">
+                    <DashboardIprPanel
+                      ipr={forecastIpr}
+                      title="Forecast insights"
+                      subtitle={`What the ${friendlyColumnName(forecastTarget)} trend means for this machine`}
+                      compact
+                    />
+                  </div>
+                ) : forecastTrendNote ? (
+                  <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                    <p><strong>Interpretation:</strong> {forecastTrendNote}</p>
+                  </div>
+                ) : (
+                  <div className="mt-3 pt-3 border-t text-xs text-muted-foreground">
+                    <p><strong>Interpretation:</strong> Chart shows time-series forecast with confidence intervals. Use this to plan production schedules, identify capacity constraints, and allocate resources efficiently.</p>
+                  </div>
+                )}
               </Card>
             </div>
           </Card>
