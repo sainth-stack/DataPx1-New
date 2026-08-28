@@ -209,6 +209,12 @@ function parseFleetSize(value: string): number {
   return Math.min(100, Math.max(1, n));
 }
 
+function parseIntervalSeconds(value: string): number {
+  const n = parseInt(value.trim(), 10);
+  if (Number.isNaN(n)) return 10;
+  return Math.min(100, Math.max(1, n));
+}
+
 function apiError(err: unknown): string {
   if (err && typeof err === "object" && "response" in err) {
     const data = (err as { response?: { data?: { message?: string } } }).response?.data;
@@ -439,6 +445,7 @@ export default function DigitalTwin() {
   const [oem, setOem] = useState("");
   const [model, setModel] = useState("");
   const [fleetSize, setFleetSize] = useState("1");
+  const [intervalSeconds, setIntervalSeconds] = useState("10");
   const [inputMethod, setInputMethod] = useState<"file" | "text">("file");
   const [textDescription, setTextDescription] = useState("");
   const [inWizard, setInWizard] = useState(false);
@@ -661,15 +668,16 @@ export default function DigitalTwin() {
       const fleet = await digitalTwinApi.createFleet({
         template_id: templateId,
         fleet_size: parseFleetSize(fleetSize),
-        interval_seconds: 10,
+        interval_seconds: parseIntervalSeconds(intervalSeconds),
         fleet_name: fleetName,
       });
       if (!fleet.status) throw new Error(fleet.message || "Failed to create fleet");
       setFleetId(fleet.fleet_id);
       setStep(4);
       const size = parseFleetSize(fleetSize);
+      const interval = parseIntervalSeconds(intervalSeconds);
       toast.success("Validation Complete", {
-        description: `Template confirmed and fleet created with ${size} machine${size > 1 ? "s" : ""}`,
+        description: `Template confirmed and fleet created with ${size} machine${size > 1 ? "s" : ""} (${interval}s data interval)`,
       });
     } catch (err) {
       console.error("Validation failed:", err);
@@ -789,6 +797,7 @@ export default function DigitalTwin() {
     setOem("");
     setModel("");
     setFleetSize("1");
+    setIntervalSeconds("10");
     setCatalogue([]);
     setMetadata([]);
     setKpis([]);
@@ -1082,7 +1091,7 @@ export default function DigitalTwin() {
                   Enter your machine details and provide either a catalog file or description
                 </p>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <FormField id="oem" label="OEM / Manufacturer" placeholder="e.g., Kalmar, Konecranes" value={oem} onChange={setOem} required />
                 <FormField id="model" label="Model" placeholder="e.g., DRU450, RTG-014" value={model} onChange={setModel} required />
                 <FormField
@@ -1092,7 +1101,16 @@ export default function DigitalTwin() {
                   value={fleetSize}
                   onChange={(v) => setFleetSize(v.replace(/\D/g, ""))}
                   inputMode="numeric"
-                  helperText="How many machines (1-100)"
+                  helperText="How many machines (1–100)"
+                />
+                <FormField
+                  id="intervalSeconds"
+                  label="Data Generation Interval (seconds)"
+                  placeholder="10"
+                  value={intervalSeconds}
+                  onChange={(v) => setIntervalSeconds(v.replace(/\D/g, ""))}
+                  inputMode="numeric"
+                  helperText="Telemetry frequency per machine (1–100 seconds)"
                 />
               </div>
               <div className="space-y-3">

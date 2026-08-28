@@ -204,6 +204,73 @@ export function parseKpiExecuteChart(result: Record<string, unknown> | null | un
     .filter((p) => !Number.isNaN(p.value));
 }
 
+export interface ForecastChartMeta {
+  title?: string;
+  x_axis_label?: string;
+  y_axis_label?: string;
+  unit?: string;
+  description?: string;
+  ipr?: {
+    inferences?: string[];
+    problems?: string[];
+    recommendations?: string[];
+  };
+}
+
+export interface ParsedForecastResult {
+  points: KpiChartPoint[];
+  title?: string;
+  chartMeta?: ForecastChartMeta;
+  trendNote?: string | null;
+}
+
+/** Normalize ARIMA forecast API payload (chart + Plotly fallback) for the Modelling UI. */
+export function parseForecastResponse(
+  res: Record<string, unknown>,
+  fallbackColumn: string,
+): ParsedForecastResult {
+  const chart = res.chart as Record<string, unknown> | undefined;
+  const plotlyParsed = parseForecastChart(res.path, res.data, fallbackColumn);
+
+  let points = parseKpiExecuteChart(res);
+  if (!points.length) {
+    points = plotlyParsed.points;
+  }
+
+  const timestamps = chart?.x_timestamps as string[] | undefined;
+  const values = chart?.values as number[] | undefined;
+  if (timestamps?.length && values?.length && timestamps.length === values.length) {
+    points = timestamps
+      .map((name, i) => ({
+        name: String(name),
+        value: Number(values[i]),
+      }))
+      .filter((p) => !Number.isNaN(p.value));
+  }
+
+  const chartMeta: ForecastChartMeta | undefined = chart
+    ? {
+        title: chart.title as string | undefined,
+        x_axis_label: chart.x_axis_label as string | undefined,
+        y_axis_label: chart.y_axis_label as string | undefined,
+        unit: chart.unit as string | undefined,
+        description: chart.description as string | undefined,
+        ipr: chart.ipr as ForecastChartMeta["ipr"],
+      }
+    : undefined;
+
+  const trendNote =
+    (typeof chart?.description === "string" ? chart.description : null) ??
+    (typeof res.trend_interpretation === "string" ? res.trend_interpretation : null);
+
+  return {
+    points,
+    title: chartMeta?.title ?? plotlyParsed.title,
+    chartMeta,
+    trendNote,
+  };
+}
+
 export interface ParsedKpiCodeOutput {
   title: string | null;
   code: string;

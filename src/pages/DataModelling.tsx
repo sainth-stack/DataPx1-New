@@ -40,8 +40,8 @@ import { PrescriptiveInsightBubble } from "@/components/modelling/PrescriptiveIn
 import { PredictionInsightsPanel, parsePredictionInsights } from "@/components/modelling/PredictionInsightsPanel";
 import { normalizeDashboardIpr, type DashboardIpr } from "@/lib/dashboardIpr";
 import {
-  mapGeneratedKpis, parseForecastChart, parseKpiExecuteChart, normalizeOutlierReport,
-  FREQ_API, PERIOD_DAYS, machineLabel, type GeneratedKpi, type OutlierReport,
+  mapGeneratedKpis, parseForecastChart, parseForecastResponse, parseKpiExecuteChart, normalizeOutlierReport,
+  FREQ_API, PERIOD_DAYS, machineLabel, type GeneratedKpi, type OutlierReport, type ForecastChartMeta,
 } from "@/lib/analyticsHelpers";
 import { getCorrelationBadgeClasses } from "@/lib/colorThresholds";
 import { useDataset } from "@/contexts/DatasetContext";
@@ -401,6 +401,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
   const [forecastTitle, setForecastTitle] = useState<string | null>(null);
   const [forecastIpr, setForecastIpr] = useState<DashboardIpr | null>(null);
   const [forecastTrendNote, setForecastTrendNote] = useState<string | null>(null);
+  const [forecastChartMeta, setForecastChartMeta] = useState<Omit<ForecastChartMeta, "ipr"> | null>(null);
 
   const [outlierTarget, setOutlierTarget] = useState("");
   const [outlierRun, setOutlierRun] = useState(false);
@@ -516,6 +517,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
     setForecastTitle(null);
     setForecastIpr(null);
     setForecastTrendNote(null);
+    setForecastChartMeta(null);
     try {
       const res = await analyticsApi.trainArima(
         forecastTarget,
@@ -523,15 +525,20 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
         PERIOD_DAYS[forecastPeriod] ?? 5,
         mlScope,
       );
-      const { points, title } = parseForecastChart(res.path, res.data, forecastTarget);
-      if (!points.length) {
+      const parsed = parseForecastResponse(res as Record<string, unknown>, forecastTarget);
+      if (!parsed.points.length) {
         toast.error("Forecast completed but no chart data was returned");
         return;
       }
-      setForecastPoints(points);
-      setForecastTitle(title ?? null);
-      setForecastIpr(normalizeDashboardIpr(res.ipr as DashboardIpr | undefined));
-      setForecastTrendNote(typeof res.trend_interpretation === "string" ? res.trend_interpretation : null);
+      setForecastPoints(parsed.points);
+      setForecastTitle(parsed.title ?? null);
+      setForecastChartMeta(parsed.chartMeta ?? null);
+      setForecastIpr(
+        normalizeDashboardIpr(
+          parsed.chartMeta?.ipr ?? (res as { ipr?: DashboardIpr }).ipr,
+        ),
+      );
+      setForecastTrendNote(parsed.trendNote ?? null);
       setForecastRun(true);
       setForecast({
         column: forecastTarget,
@@ -601,6 +608,7 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               setForecastPoints([]);
               setForecastIpr(null);
               setForecastTrendNote(null);
+              setForecastChartMeta(null);
               setOutlierReport(null);
             }}
           >
@@ -919,11 +927,14 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
               </p>
               <Card className="rounded-card border p-5">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-semibold">Projected {friendlyColumnName(forecastTarget)}</h3>
+                  <h3 className="text-sm font-semibold">
+                    {forecastChartMeta?.title ?? forecastTitle ?? `Projected ${friendlyColumnName(forecastTarget)}`}
+                  </h3>
                   <ChartInfo
-                    xAxis="Date"
-                    yAxis={friendlyColumnName(forecastTarget)}
-                    note={forecastTrendNote ?? "Use this trend to plan maintenance windows, staffing, and capacity."}
+                    title="What this forecast tells you"
+                    xAxis={forecastChartMeta?.x_axis_label ?? "Date / time"}
+                    yAxis={`${forecastChartMeta?.y_axis_label ?? friendlyColumnName(forecastTarget)}${forecastChartMeta?.unit ? ` (${forecastChartMeta.unit})` : ""}`}
+                    note={forecastTrendNote ?? forecastChartMeta?.description ?? "Use this trend to plan maintenance windows, staffing, and capacity."}
                     ipr={forecastIpr}
                   />
                 </div>
@@ -938,13 +949,13 @@ function ModellingPanel({ scope, activated }: { scope: AnalyticsScopeValue; acti
                         angle={-30} 
                         textAnchor="end" 
                         height={60}
-                        label={{ value: "Date", position: "insideBottom", offset: -45, style: { fontSize: 11 } }}
+                        label={{ value: forecastChartMeta?.x_axis_label ?? "Date", position: "insideBottom", offset: -45, style: { fontSize: 11 } }}
                       />
                       <YAxis 
                         tick={{ fontSize: 11 }} 
                         stroke="hsl(var(--muted-foreground))" 
                         domain={["dataMin - 1", "dataMax + 1"]}
-                        label={{ value: friendlyColumnName(forecastTarget), angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
+                        label={{ value: forecastChartMeta?.y_axis_label ?? friendlyColumnName(forecastTarget), angle: -90, position: "insideLeft", style: { fontSize: 11 } }}
                       />
                       <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px", fontSize: "12px" }} />
                       <Line type="monotone" dataKey="value" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ fill: "hsl(var(--primary))", r: 4 }} name={friendlyColumnName(forecastTarget)} />
