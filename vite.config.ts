@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "0.0.0.0",
     port: 8080,
-    allowedHosts: ["px1-terminal-test.loutsi-ai.com"],
+    allowedHosts: ["px1-terminal-test.luotsi-ai.com"],
     hmr: {
       overlay: false,
     },
