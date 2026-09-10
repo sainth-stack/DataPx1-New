@@ -15,6 +15,7 @@ import { dataProcessingApi } from "@/lib/api/dataProcessing";
 import {
   getCorrelationColor,
   correlationThresholds,
+  getCorrelationStrength,
 } from "@/lib/colorThresholds";
 import { friendlyColumnName } from "@/lib/friendlyLabels";
 
@@ -512,11 +513,33 @@ export default function DataProcessing() {
                         tickFormatter={(v) => friendlyColumnName(String(v))}
                       />
                       <Tooltip
-                        contentStyle={{
-                          backgroundColor: "hsl(var(--card))",
-                          border: "1px solid hsl(var(--border))",
-                          borderRadius: "8px",
-                          fontSize: "12px",
+                        content={({ active, payload }) => {
+                          if (!active || !payload?.length) return null;
+                          const row = payload[0].payload as FeatureAnalysisItem;
+                          const strength = getCorrelationStrength(row.correlation);
+                          const threshold = correlationThresholds.find((t) =>
+                            strength === "Strong"
+                              ? t.label.startsWith("Strong")
+                              : strength === "Moderate"
+                                ? t.label.startsWith("Moderate")
+                                : t.label.startsWith("Weak"),
+                          );
+                          return (
+                            <div className="rounded-lg border border-border bg-card p-3 text-xs shadow-md max-w-xs">
+                              <p className="font-medium">{friendlyColumnName(row.feature)}</p>
+                              <p className="text-muted-foreground mt-1">
+                                Importance: <span className="font-mono">{row.importance.toFixed(4)}</span>
+                              </p>
+                              <p className="text-muted-foreground">
+                                Pearson r: <span className="font-mono">{row.correlation.toFixed(4)}</span> ({strength})
+                              </p>
+                              {threshold && (
+                                <p className="text-muted-foreground mt-1.5 leading-relaxed border-t border-border/50 pt-1.5">
+                                  {threshold.meaning}
+                                </p>
+                              )}
+                            </div>
+                          );
                         }}
                       />
                       <Bar dataKey="importance" radius={[0, 6, 6, 0]}>
@@ -526,6 +549,15 @@ export default function DataProcessing() {
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-muted-foreground border-t border-border/60 pt-3">
+                  <span className="w-full text-[10px] font-medium text-muted-foreground mb-0.5">Bar colors (correlation with target)</span>
+                  {correlationThresholds.map((t) => (
+                    <span key={t.label} className="inline-flex items-center gap-1.5">
+                      <span className="h-2.5 w-2.5 rounded-sm shrink-0" style={{ background: t.color }} />
+                      {t.label} ({t.range})
+                    </span>
+                  ))}
                 </div>
               </Card>
 

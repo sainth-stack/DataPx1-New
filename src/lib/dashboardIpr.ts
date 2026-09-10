@@ -6,16 +6,36 @@ export interface DashboardIpr {
 
 export interface DashboardPlot {
   plot_id?: string;
-  type?: "bar" | "line" | "area";
+  type?: "bar" | "line" | "area" | "heatmap";
   title?: string;
   unit?: string;
   target?: number;
   labels?: string[];
   x_labels?: string[];
-  values?: number[];
+  y_labels?: string[];
+  values?: number[] | number[][];
   colors?: string[];
   description?: string;
   ipr?: DashboardIpr;
+  color_scale?: { min?: number; max?: number };
+}
+
+export interface DashboardHeatmapCell {
+  value?: number | null;
+  description?: string;
+  description_source?: string;
+  sensor_a?: string;
+  sensor_b?: string;
+  machine_a?: string;
+  machine_b?: string;
+}
+
+export interface DashboardHeatmapPlot extends DashboardPlot {
+  type: "heatmap";
+  x_labels: string[];
+  y_labels: string[];
+  values: number[][];
+  cells?: DashboardHeatmapCell[];
 }
 
 /** Clean GPT/heuristic IPR text for business readers. */

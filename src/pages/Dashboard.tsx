@@ -19,6 +19,7 @@ import { useDataset } from "@/contexts/DatasetContext";
 import { ChartInfo } from "@/components/ChartInfo";
 import { DashboardIprPanel } from "@/components/dashboard/DashboardIprPanel";
 import { DashboardPlotCard } from "@/components/dashboard/DashboardPlotCard";
+import { CorrelationHeatmapCard, correlationPlotFromApi } from "@/components/dashboard/CorrelationHeatmapCard";
 import { digitalTwinApi } from "@/lib/api/digitalTwin";
 import { dashboardApi } from "@/lib/api/dashboard";
 import type { DashboardIpr, DashboardPlot } from "@/lib/dashboardIpr";
@@ -48,6 +49,14 @@ interface FleetRosterItem {
   ipr?: DashboardIpr;
 }
 
+interface FleetCorrelationBlock {
+  method?: string;
+  row_count?: number;
+  machine_count?: number;
+  plot?: Record<string, unknown>;
+  ipr?: DashboardIpr;
+}
+
 interface FleetDashboardData {
   fleet_name?: string;
   roster: FleetRosterItem[];
@@ -63,6 +72,12 @@ interface FleetDashboardData {
     labels: string[];
     values: number[];
     target: number;
+  };
+  correlation?: {
+    sensor_correlation?: FleetCorrelationBlock;
+    machine_correlation?: FleetCorrelationBlock;
+    plot?: Record<string, unknown>;
+    ipr?: DashboardIpr;
   };
 }
 
@@ -280,6 +295,28 @@ function FleetView({
 
   const sensorPlots = (fleetData.plots ?? []).filter((plot) => plot.plot_id !== "oee_by_machine");
 
+  const machineLabelMap = Object.fromEntries(
+    roster.map((m) => [m.machine_id, m.display_id]),
+  );
+  for (const m of roster) {
+    if (m.twin_id) machineLabelMap[m.twin_id] = m.display_id;
+  }
+
+  const sensorCorrelationPlot =
+    correlationPlotFromApi(
+      fleetData.correlation?.sensor_correlation?.plot ??
+        fleetData.correlation?.plot,
+      fleetData.correlation?.sensor_correlation?.ipr ?? fleetData.correlation?.ipr,
+    );
+  const machineCorrelationPlot = correlationPlotFromApi(
+    fleetData.correlation?.machine_correlation?.plot,
+    fleetData.correlation?.machine_correlation?.ipr,
+  );
+
+  const sensorRows = fleetData.correlation?.sensor_correlation?.row_count;
+  const machineCount =
+    fleetData.correlation?.machine_correlation?.machine_count ?? roster.length;
+
   return (
     <div className="space-y-6">
       <DashboardIprPanel ipr={fleetData.ipr} />
@@ -304,6 +341,39 @@ function FleetView({
 
       {/* OEE per Machine */}
       <DashboardPlotCard plot={oeePlot} targetBadge />
+
+      {(sensorCorrelationPlot || machineCorrelationPlot) && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Multi-Machine Correlation</h2>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Cross-sensor and cross-machine relationships pooled across the fleet
+              {sensorRows ? ` (${sensorRows.toLocaleString()} readings)` : ""}.
+            </p>
+          </div>
+          <div className="grid xl:grid-cols-2 gap-6">
+            {sensorCorrelationPlot && (
+              <CorrelationHeatmapCard
+                plot={sensorCorrelationPlot}
+                labelKind="sensor"
+                subtitle={
+                  fleetData.correlation?.sensor_correlation?.method
+                    ? `Method: ${fleetData.correlation.sensor_correlation.method.replace(/_/g, " ")}`
+                    : "All sensors · all machines"
+                }
+              />
+            )}
+            {machineCorrelationPlot && (
+              <CorrelationHeatmapCard
+                plot={machineCorrelationPlot}
+                labelKind="machine"
+                displayByMachineId={machineLabelMap}
+                subtitle={`${machineCount} machines · profile means across all sensors`}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {sensorPlots.length > 0 && (
         <div className="grid lg:grid-cols-2 gap-6">
