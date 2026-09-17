@@ -10,6 +10,7 @@ import { rawQualityKpis, syntheticQualityKpis } from "@/data/machineData";
 import { useDataset } from "@/contexts/DatasetContext";
 import { dataProcessingApi } from "@/lib/api/dataProcessing";
 import { genaiApi } from "@/lib/api/genai";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface Msg {
   role: "user" | "ai";
@@ -32,7 +33,8 @@ function mapQualityMetrics(metrics: Record<string, unknown> | undefined, enriche
  * Loads live quality scores when a dataset is active; falls back to static demo KPIs.
  */
 export function VectorAIAssistant() {
-  const { activeDatasetId, loading: datasetLoading } = useDataset();
+  const { activeDatasetId, activeRegistryId, loading: datasetLoading } = useDataset();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -145,20 +147,33 @@ export function VectorAIAssistant() {
     };
   };
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (overrideText?: string) => {
+    const text = (overrideText ?? input).trim();
     if (!text || sending) return;
+    if (!activeRegistryId) {
+      setMessages((m) => [
+        ...m,
+        { role: "user", content: text },
+        {
+          role: "ai",
+          content: "Please select an active dataset in Data Ingestion before asking Vector AI questions.",
+          cta: { label: "Go to Data Ingestion", to: "/data-ingestion" },
+        },
+      ]);
+      setInput("");
+      return;
+    }
     setInput("");
     setMessages((m) => [...m, { role: "user", content: text }]);
     setSending(true);
     try {
-      const parsed = await genaiApi.chat(text);
+      const parsed = await genaiApi.chat(text, activeRegistryId);
       setMessages((m) => [...m, { role: "ai", content: parsed.text }]);
     } catch (err) {
       const fallback = reply(text);
       setMessages((m) => [...m, {
         role: "ai",
-        content: err instanceof Error ? err.message : fallback.content,
+        content: fallback.content,
         cta: fallback.cta,
       }]);
     } finally {
@@ -256,7 +271,7 @@ export function VectorAIAssistant() {
                 key={q}
                 variant="outline"
                 className="text-[10px] cursor-pointer hover:bg-accent hover:text-accent-foreground"
-                onClick={() => setInput(q)}
+                onClick={() => { void send(q); }}
               >
                 <Sparkles className="h-2.5 w-2.5 mr-1" />
                 {q}
@@ -268,11 +283,11 @@ export function VectorAIAssistant() {
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && send()}
+              onKeyDown={(e) => e.key === "Enter" && void send()}
               placeholder="Ask Vector AI…"
               className="h-9 text-xs"
             />
-            <Button size="icon" className="h-9 w-9 shrink-0" onClick={send} disabled={!input.trim() || sending}>
+            <Button size="icon" className="h-9 w-9 shrink-0" onClick={() => void send()} disabled={!input.trim() || sending}>
               <Send className="h-4 w-4" />
             </Button>
           </div>

@@ -531,7 +531,7 @@ export default function DataProcessing() {
                                 Importance: <span className="font-mono">{row.importance.toFixed(4)}</span>
                               </p>
                               <p className="text-muted-foreground">
-                                Pearson r: <span className="font-mono">{row.correlation.toFixed(4)}</span> ({strength})
+                                Correlation (r): <span className="font-mono">{row.correlation.toFixed(4)}</span> ({strength})
                               </p>
                               {threshold && (
                                 <p className="text-muted-foreground mt-1.5 leading-relaxed border-t border-border/50 pt-1.5">
@@ -595,7 +595,7 @@ export default function DataProcessing() {
                     columns={[
                       { key: "feature", header: "Feature", render: (v) => <span className="font-medium text-xs">{friendlyColumnName(String(v))}</span> },
                       { key: "importance", header: "Importance", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
-                      { key: "correlation", header: "Pearson Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
+                      { key: "correlation", header: "Correlation", align: "right", render: (v) => <span className="font-mono text-xs">{(v as number).toFixed(4)}</span> },
                     ] as ColumnDef[]}
                     rows={featureAnalysis.features}
                     getRowKey={(f) => (f as { feature: string }).feature}

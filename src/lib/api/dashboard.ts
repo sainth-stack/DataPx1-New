@@ -5,6 +5,7 @@ export interface FleetDashboardParams {
   registry_id?: string | number;
   view?: "fleet" | "machine" | "correlation";
   use_gpt_ipr?: boolean;
+  user_role?: string;
 }
 
 export interface MachineDashboardParams {
@@ -12,6 +13,7 @@ export interface MachineDashboardParams {
   registry_id?: string | number;
   fleet_id?: string;
   use_gpt_ipr?: boolean;
+  user_role?: string;
 }
 
 export const dashboardApi = {

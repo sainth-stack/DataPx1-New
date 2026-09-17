@@ -1473,22 +1473,51 @@ export default function DataModelling() {
   const sessionScopeKey =
     scope.registryId != null && scope.fileName ? `${scope.registryId}:${scope.fileName}` : null;
 
+  const isPrescriptiveAiTab = activeTab === "ai";
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Data Modelling</h1>
+        <h1 className="text-2xl font-semibold">
+          {isPrescriptiveAiTab ? "Prescriptive AI" : "Data Modelling"}
+        </h1>
         <p className="text-sm text-muted-foreground mt-0.5">
-          Build KPIs, run predictions, and explore your fleet data in plain language
+          {isPrescriptiveAiTab
+            ? "AI-powered prescriptive recommendations — risk, maintenance, and performance actions"
+            : "Standard data modelling — build KPIs and run predictions on your fleet data"}
         </p>
       </div>
 
       <ModellingSessionProvider scopeKey={sessionScopeKey}>
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-          <TabsList className="rounded-button">
-            <TabsTrigger value="kpi" className="rounded-button gap-1.5"><Target className="h-3.5 w-3.5" /> KPI</TabsTrigger>
-            <TabsTrigger value="modelling" className="rounded-button gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Modelling</TabsTrigger>
-            <TabsTrigger value="ai" className="rounded-button gap-1.5"><Bot className="h-3.5 w-3.5" /> AI</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-3 flex-wrap">
+              {/* Standard data modelling group */}
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide px-1">Standard Modelling</p>
+                <TabsList className="rounded-button">
+                  <TabsTrigger value="kpi" className="rounded-button gap-1.5"><Target className="h-3.5 w-3.5" /> KPI</TabsTrigger>
+                  <TabsTrigger value="modelling" className="rounded-button gap-1.5"><BarChart3 className="h-3.5 w-3.5" /> Modelling</TabsTrigger>
+                </TabsList>
+              </div>
+
+              {/* Divider */}
+              <div className="h-10 w-px bg-border hidden sm:block" />
+
+              {/* Prescriptive AI group */}
+              <div className="flex flex-col gap-0.5">
+                <p className="text-[10px] font-medium text-primary uppercase tracking-wide px-1">Prescriptive AI</p>
+                <TabsList className="rounded-button bg-primary/10 border border-primary/20">
+                  <TabsTrigger
+                    value="ai"
+                    className="rounded-button gap-1.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" /> Prescriptive AI
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+            </div>
+          </div>
 
           <TabsContent value="kpi"><KpiPanel scope={scope} activated={activeTab === "kpi"} /></TabsContent>
           <TabsContent value="modelling"><ModellingPanel scope={scope} activated={activeTab === "modelling"} /></TabsContent>

@@ -41,6 +41,7 @@ export const reportsApi = {
     prompt?: string;
     columns: string[];
     customColumns?: string[];
+    user_role?: string;
   }) {
     const { data } = await apiClient.post("/api/reports/custom", {
       title: body.title,
@@ -49,6 +50,7 @@ export const reportsApi = {
       prompt: body.prompt ?? "",
       columns: body.columns,
       customColumns: body.customColumns ?? [],
+      user_role: body.user_role ?? "",
     });
     if (!data.success || !data.data) throw new Error(data.message ?? "Failed to create custom report");
     return data.data;

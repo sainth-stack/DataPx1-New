@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useDataset } from "@/contexts/DatasetContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { reportsApi } from "@/lib/api/reports";
 import {
   type AgentLog, type PerfRow, type SensorRow,
@@ -138,13 +139,66 @@ interface GeneratedReport {
 
 const ROW_PREVIEW_LIMIT = 100;
 
+// Role → ordered tabs most relevant first
+const ROLE_TAB_ORDER: Record<string, string[]> = {
+  maintenance: ["sensors", "agents", "perf", "custom"],
+  technician:  ["sensors", "agents", "perf", "custom"],
+  operator:    ["perf", "sensors", "agents", "custom"],
+  supervisor:  ["perf", "agents", "sensors", "custom"],
+  executive:   ["perf", "agents", "custom", "sensors"],
+  manager:     ["perf", "agents", "custom", "sensors"],
+  admin:       ["agents", "perf", "sensors", "custom"],
+};
+const DEFAULT_TAB_ORDER = ["agents", "perf", "sensors", "custom"];
+
+// Role → human-readable context string shown as banner
+const ROLE_REPORT_CONTEXT: Record<string, { headline: string; detail: string }> = {
+  maintenance: {
+    headline: "Maintenance Engineer View",
+    detail: "Sensor Diagnostics and Agent Alerts have been prioritised — focus on real-time health signals and predictive fault indicators.",
+  },
+  technician: {
+    headline: "Technician View",
+    detail: "Sensor readings and live diagnostic events are surfaced first so you can respond quickly to field conditions.",
+  },
+  operator: {
+    headline: "Operator View",
+    detail: "Asset Performance metrics are shown first to help you track shift efficiency and OEE targets.",
+  },
+  supervisor: {
+    headline: "Supervisor View",
+    detail: "Performance and Agent Intelligence reports are prioritised for shift-level oversight and operational decisions.",
+  },
+  executive: {
+    headline: "Executive View",
+    detail: "Fleet-wide performance and AI-driven insights are prioritised to support strategic and financial decision-making.",
+  },
+  manager: {
+    headline: "Manager View",
+    detail: "Performance overview and AI agent recommendations are surfaced first for operational management.",
+  },
+  admin: {
+    headline: "Administrator View",
+    detail: "Full access to all report types. Agent Intelligence is shown first for system-level monitoring.",
+  },
+};
+
+function normaliseRole(role: string | string[] | undefined): string {
+  const raw = Array.isArray(role) ? role[0] : role;
+  return (raw ?? "").toLowerCase().trim();
+}
+
 export default function Reports() {
   const { activeRegistryId, activeDataset, loading: datasetLoading, error: datasetError } = useDataset();
+  const { user } = useAuth();
+  const normRole = normaliseRole(user?.role);
+  const tabOrder = ROLE_TAB_ORDER[normRole] ?? DEFAULT_TAB_ORDER;
+  const roleContext = ROLE_REPORT_CONTEXT[normRole] ?? null;
 
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [generated, setGenerated] = useState<GeneratedReport[]>([]);
-  const [activeTab, setActiveTab] = useState("agents");
+  const [activeTab, setActiveTab] = useState(tabOrder[0]);
   const [refreshing, setRefreshing] = useState(false);
 
   const [agentLogs, setAgentLogs] = useState<AgentLog[]>([]);
@@ -402,6 +456,7 @@ export default function Reports() {
         prompt: prompt.trim(),
         columns: toApiColumns(selectedCols),
         customColumns: customColumns,
+        user_role: normRole || undefined,
       });
       const report: GeneratedReport = {
         id: String(created.reportId),
@@ -548,31 +603,52 @@ export default function Reports() {
         </div>
       ) : null}
 
+      {roleContext && (
+        <div className="flex items-start gap-3 rounded-xl border border-accent/30 bg-accent/5 px-4 py-3">
+          <Brain className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-accent">{roleContext.headline}</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{roleContext.detail}</p>
+          </div>
+        </div>
+      )}
+
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-4 w-full lg:w-auto h-12">
-          <TabsTrigger value="agents" className="gap-2 data-[state=active]:shadow-sm">
-            <Brain className="h-4 w-4" /> 
-            <span className="hidden sm:inline">Agent Intelligence</span>
-            <span className="sm:hidden">Agents</span>
-          </TabsTrigger>
-          <TabsTrigger value="perf" className="gap-2 data-[state=active]:shadow-sm">
-            <TrendingUp className="h-4 w-4" /> 
-            <span className="hidden sm:inline">Asset Performance</span>
-            <span className="sm:hidden">Performance</span>
-          </TabsTrigger>
-          <TabsTrigger value="sensors" className="gap-2 data-[state=active]:shadow-sm">
-            <Cpu className="h-4 w-4" /> 
-            <span className="hidden sm:inline">Sensor Diagnostics</span>
-            <span className="sm:hidden">Sensors</span>
-          </TabsTrigger>
-          <TabsTrigger value="custom" className="gap-2 data-[state=active]:shadow-sm">
-            <Zap className="h-4 w-4" /> 
-            <span className="hidden sm:inline">Custom Reports</span>
-            <span className="sm:hidden">Custom</span>
-            {generated.length > 0 && (
-              <Badge variant="secondary" className="h-5 px-2 text-xs font-semibold ml-1">{generated.length}</Badge>
-            )}
-          </TabsTrigger>
+          {tabOrder.map((tabKey) => {
+            if (tabKey === "agents") return (
+              <TabsTrigger key="agents" value="agents" className="gap-2 data-[state=active]:shadow-sm">
+                <Brain className="h-4 w-4" />
+                <span className="hidden sm:inline">Agent Intelligence</span>
+                <span className="sm:hidden">Agents</span>
+              </TabsTrigger>
+            );
+            if (tabKey === "perf") return (
+              <TabsTrigger key="perf" value="perf" className="gap-2 data-[state=active]:shadow-sm">
+                <TrendingUp className="h-4 w-4" />
+                <span className="hidden sm:inline">Asset Performance</span>
+                <span className="sm:hidden">Performance</span>
+              </TabsTrigger>
+            );
+            if (tabKey === "sensors") return (
+              <TabsTrigger key="sensors" value="sensors" className="gap-2 data-[state=active]:shadow-sm">
+                <Cpu className="h-4 w-4" />
+                <span className="hidden sm:inline">Sensor Diagnostics</span>
+                <span className="sm:hidden">Sensors</span>
+              </TabsTrigger>
+            );
+            if (tabKey === "custom") return (
+              <TabsTrigger key="custom" value="custom" className="gap-2 data-[state=active]:shadow-sm">
+                <Zap className="h-4 w-4" />
+                <span className="hidden sm:inline">Custom Reports</span>
+                <span className="sm:hidden">Custom</span>
+                {generated.length > 0 && (
+                  <Badge variant="secondary" className="h-5 px-2 text-xs font-semibold ml-1">{generated.length}</Badge>
+                )}
+              </TabsTrigger>
+            );
+            return null;
+          })}
         </TabsList>
 
         {/* Agent Intelligence */}

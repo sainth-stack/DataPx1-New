@@ -43,6 +43,10 @@ export function sanitizeIprText(text: string): string {
   return text
     .replace(/[\u200B-\u200D\uFEFF\u2060\u00AD⁠]/g, "")
     .replace(/`/g, "")
+    // Strip any trailing "Source: ..." attribution (e.g. "Source: gpt", "Source: static")
+    .replace(/\s*Source:\s*\S+\s*$/i, "")
+    // Strip any "Pearson" prefix from correlation descriptions
+    .replace(/\bPearson\s+/gi, "")
     .replace(/\b([a-z][a-z0-9]*(?:_[a-z0-9]+)+)\b/gi, (match) =>
       match.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
     )

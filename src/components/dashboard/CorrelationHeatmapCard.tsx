@@ -16,7 +16,7 @@ function heatmapCellStyle(value: number, min: number, max: number): React.CSSPro
   return { backgroundColor: `hsl(var(--destructive) / ${0.12 + t * 0.78})` };
 }
 
-type CellMeta = { description?: string; description_source?: string };
+type CellMeta = { description?: string };
 
 function cellLookupKey(row: string, col: string): string {
   return `${row}|${col}`;
@@ -36,7 +36,6 @@ function buildCellMetaMap(
     if (row == null || col == null) continue;
     map.set(cellLookupKey(String(row), String(col)), {
       description: cell.description,
-      description_source: cell.description_source,
     });
   }
   return map;
@@ -54,12 +53,12 @@ function defaultCorrelationDescription(
   const strength =
     abs >= 0.7 ? "strong" : abs >= 0.4 ? "moderate" : abs >= 0.2 ? "weak" : "very weak";
   if (abs < 0.05) {
-    return `Pearson r = ${value.toFixed(2)} indicates no meaningful linear relationship between ${rowText} and ${colText}.`;
+    return `r = ${value.toFixed(2)} — no meaningful linear relationship between ${rowText} and ${colText}.`;
   }
   if (value > 0) {
-    return `Pearson r = ${value.toFixed(2)} indicates a ${strength} positive link — when ${rowText} rises, ${colText} tends to rise as well.`;
+    return `r = ${value.toFixed(2)} — ${strength} positive link. When ${rowText} rises, ${colText} tends to rise as well.`;
   }
-  return `Pearson r = ${value.toFixed(2)} indicates a ${strength} inverse link — when ${rowText} rises, ${colText} tends to fall.`;
+  return `r = ${value.toFixed(2)} — ${strength} inverse link. When ${rowText} rises, ${colText} tends to fall.`;
 }
 
 function resolveCellDescription(
@@ -116,7 +115,7 @@ function CorrelationColorLegend({ min, max }: { min: number; max: number }) {
         </span>
       </div>
       <p className="text-[10px] text-muted-foreground leading-relaxed">
-        Darker shades mean a stronger relationship; lighter shades mean weaker correlation. Values are Pearson r from{" "}
+        Darker shades mean a stronger relationship; lighter shades mean weaker correlation. Values are correlation (r) from{" "}
         {min.toFixed(1)} to {max.toFixed(1)}.
       </p>
     </div>
@@ -180,7 +179,7 @@ export function CorrelationHeatmapCard({
           title="How to read this heatmap"
           xAxis={labelKind === "machine" ? "Each machine in the fleet" : "Sensor / metric"}
           yAxis={labelKind === "machine" ? "Each machine in the fleet" : "Sensor / metric"}
-          note="Pearson correlation from −1 (inverse) to +1 (strong positive). Darker green = stronger positive link; darker red = stronger inverse link."
+          note="Correlation from −1 (inverse) to +1 (strong positive). Darker green = stronger positive link; darker red = stronger inverse link."
           ipr={ipr}
           thresholds={[
             { color: "hsl(var(--success))", label: "Positive correlation (metrics rise together)" },
@@ -268,11 +267,6 @@ export function CorrelationHeatmapCard({
                               {description && (
                                 <p className="text-muted-foreground mt-1.5 leading-relaxed border-t border-border/50 pt-1.5">
                                   {description}
-                                </p>
-                              )}
-                              {meta?.description_source && (
-                                <p className="text-[10px] text-muted-foreground/70 mt-1 capitalize">
-                                  Source: {meta.description_source}
                                 </p>
                               )}
                             </TooltipContent>

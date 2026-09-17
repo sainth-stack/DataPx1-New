@@ -105,8 +105,10 @@ export function parseGenAiResponse(data: Record<string, unknown>): GenAiParsedRe
 }
 
 export const genaiApi = {
-  async chat(prompt: string): Promise<GenAiParsedReply> {
-    const { data } = await apiClient.post("/api/genai_bot", { prompt }, { timeout: 0 });
+  async chat(prompt: string, registryId?: number | null): Promise<GenAiParsedReply> {
+    const body: Record<string, unknown> = { prompt };
+    if (registryId != null) body.registry_id = registryId;
+    const { data } = await apiClient.post("/api/genai_bot", body, { timeout: 0 });
     if (data && typeof data === "object") {
       return parseGenAiResponse(data as Record<string, unknown>);
     }

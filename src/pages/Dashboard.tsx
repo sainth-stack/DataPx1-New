@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import {
 import { Tooltip as UITooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMachineScope } from "@/contexts/MachineScopeContext";
 import { useDataset } from "@/contexts/DatasetContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { ChartInfo } from "@/components/ChartInfo";
 import { DashboardIprPanel } from "@/components/dashboard/DashboardIprPanel";
 import { DashboardPlotCard } from "@/components/dashboard/DashboardPlotCard";
@@ -356,11 +358,7 @@ function FleetView({
               <CorrelationHeatmapCard
                 plot={sensorCorrelationPlot}
                 labelKind="sensor"
-                subtitle={
-                  fleetData.correlation?.sensor_correlation?.method
-                    ? `Method: ${fleetData.correlation.sensor_correlation.method.replace(/_/g, " ")}`
-                    : "All sensors · all machines"
-                }
+                subtitle="All sensors · all machines"
               />
             )}
             {machineCorrelationPlot && (
@@ -781,104 +779,94 @@ function SingleMachineView({
 export default function Dashboard() {
   const { scope, setScope, selectedMachineId, setSelectedMachineId } = useMachineScope();
   const { activeRegistryId, loading: datasetLoading } = useDataset();
-  const [fleetData, setFleetData] = useState<FleetDashboardData | null>(null);
-  const [machineData, setMachineData] = useState<MachineDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userRole = Array.isArray(user?.role) ? user.role[0] : (user?.role ?? undefined);
 
-  useEffect(() => {
-    if (datasetLoading) return;
+  // ── Fleet list (cached 10 min) ─────────────────────────────────────────────
+  const {
+    data: fleetsRes,
+    isLoading: fleetsLoading,
+    error: fleetsQueryError,
+  } = useQuery({
+    queryKey: ["fleets"],
+    queryFn: () => digitalTwinApi.listFleets(),
+    staleTime: 10 * 60 * 1000,
+    gcTime: 20 * 60 * 1000,
+    enabled: !datasetLoading && activeRegistryId != null,
+  });
 
-    let cancelled = false;
+  const fleet = useMemo(() => {
+    if (!fleetsRes?.fleets?.length) return null;
+    return (
+      fleetsRes.fleets.find((f) => Number(f.registry_id) === activeRegistryId) ??
+      fleetsRes.fleets[0]
+    );
+  }, [fleetsRes, activeRegistryId]);
 
-    (async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        if (activeRegistryId == null) {
-          setError("No active dataset. Select a dataset in Data Ingestion first.");
-          setFleetData(null);
-          setMachineData(null);
-          setLoading(false);
-          return;
-        }
-
-        const fleetsRes = await digitalTwinApi.listFleets();
-        if (!fleetsRes.fleets || fleetsRes.fleets.length === 0) {
-          setError("No fleets available. Please create a Digital Twin fleet first.");
-          setFleetData(null);
-          setMachineData(null);
-          setLoading(false);
-          return;
-        }
-
-        const fleet =
-          fleetsRes.fleets.find((f) => Number(f.registry_id) === activeRegistryId) ??
-          fleetsRes.fleets[0];
-
-        if (scope === "fleet") {
-          const data = await dashboardApi.getFleetDashboard({
-            fleet_id: fleet.fleet_id,
-            registry_id: fleet.registry_id ?? activeRegistryId,
-            view: "correlation",
-            use_gpt_ipr: true,
-          });
-          if (cancelled) return;
-          setFleetData(data as FleetDashboardData);
-          setMachineData(null);
-          if (!selectedMachineId && data.roster?.length > 0) {
-            setSelectedMachineId(data.roster[0].machine_id);
-          }
-        } else {
-          const data = await dashboardApi.getFleetDashboard({
-            fleet_id: fleet.fleet_id,
-            registry_id: fleet.registry_id ?? activeRegistryId,
-            view: "machine",
-            use_gpt_ipr: true,
-          });
-          if (cancelled) return;
-          setFleetData(data as FleetDashboardData);
-
-          let machineId = selectedMachineId;
-          if (!machineId && data.roster?.length > 0) {
-            machineId = data.roster[0].machine_id;
-            setSelectedMachineId(machineId);
-          }
-
-          if (machineId) {
-            const rosterItem = data.roster?.find((m: FleetRosterItem) => m.machine_id === machineId);
-            if (rosterItem) {
-              const machineDashboard = await dashboardApi.getMachineDashboard({
-                twin_id: rosterItem.twin_id,
-                registry_id: fleet.registry_id ?? activeRegistryId,
-                fleet_id: fleet.fleet_id,
-                use_gpt_ipr: true,
-              });
-              if (cancelled) return;
-              setMachineData(machineDashboard as MachineDashboardData);
-            } else {
-              setMachineData(null);
-            }
-          } else {
-            setMachineData(null);
-          }
-        }
-
-        if (!cancelled) setLoading(false);
-      } catch (err) {
-        console.error("Error loading dashboard:", err);
-        if (!cancelled) {
-          setError(getErrorMessage(err));
-          setLoading(false);
-        }
+  // ── Fleet dashboard (cached 5 min per fleet+registry+scope+role) ──────────
+  const fleetView = scope === "fleet" ? "correlation" : "machine";
+  const {
+    data: fleetData,
+    isLoading: fleetLoading,
+    error: fleetQueryError,
+  } = useQuery({
+    queryKey: ["fleet-dashboard", fleet?.fleet_id, activeRegistryId, fleetView, userRole],
+    queryFn: async () => {
+      const res = await dashboardApi.getFleetDashboard({
+        fleet_id: fleet!.fleet_id,
+        registry_id: fleet!.registry_id ?? activeRegistryId!,
+        view: fleetView,
+        use_gpt_ipr: true,
+        user_role: userRole,
+      });
+      const data = res as FleetDashboardData;
+      if (!selectedMachineId && data.roster?.length > 0) {
+        setSelectedMachineId(data.roster[0].machine_id);
       }
-    })();
+      return data;
+    },
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    enabled: !datasetLoading && fleet != null && activeRegistryId != null,
+  });
 
-    return () => {
-      cancelled = true;
-    };
-  }, [scope, selectedMachineId, activeRegistryId, datasetLoading, setSelectedMachineId]);
+  // ── Machine dashboard (cached 5 min per twin+registry+role) ───────────────
+  const rosterItem = useMemo(
+    () => fleetData?.roster?.find((m) => m.machine_id === selectedMachineId),
+    [fleetData, selectedMachineId],
+  );
+
+  const {
+    data: machineData,
+    isLoading: machineLoading,
+    error: machineQueryError,
+  } = useQuery({
+    queryKey: ["machine-dashboard", rosterItem?.twin_id, activeRegistryId, fleet?.fleet_id, userRole],
+    queryFn: () =>
+      dashboardApi.getMachineDashboard({
+        twin_id: rosterItem!.twin_id,
+        registry_id: fleet!.registry_id ?? activeRegistryId!,
+        fleet_id: fleet!.fleet_id,
+        use_gpt_ipr: true,
+        user_role: userRole,
+      }) as Promise<MachineDashboardData>,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 15 * 60 * 1000,
+    placeholderData: keepPreviousData,
+    enabled: scope === "single" && rosterItem != null && fleet != null && activeRegistryId != null,
+  });
+
+  const loading = datasetLoading || fleetsLoading || (fleetLoading && !fleetData) || (scope === "single" && machineLoading && !fleetData && !machineData);
+
+  const error = useMemo(() => {
+    if (!datasetLoading && activeRegistryId == null) return "No active dataset. Select a dataset in Data Ingestion first.";
+    if (fleetsQueryError) return getErrorMessage(fleetsQueryError);
+    if (fleetsRes && !fleetsRes.fleets?.length) return "No fleets available. Please create a Digital Twin fleet first.";
+    if (fleetQueryError) return getErrorMessage(fleetQueryError);
+    if (machineQueryError) return getErrorMessage(machineQueryError);
+    return null;
+  }, [datasetLoading, activeRegistryId, fleetsQueryError, fleetsRes, fleetQueryError, machineQueryError]);
 
   if (loading || datasetLoading) {
     return (
@@ -925,6 +913,11 @@ export default function Dashboard() {
               ? `Aggregated health and performance across ${fleetData.fleet_name || "all machines"}`
               : "Deep telemetry and KPIs for a single machine"}
           </p>
+          {userRole && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Insights tailored for: <span className="font-semibold text-foreground capitalize">{userRole}</span>
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {scope === "single" && (

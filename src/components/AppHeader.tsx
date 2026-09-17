@@ -22,7 +22,7 @@ const routeNames: Record<string, string> = {
   "/vector-ai": "Vector Agents",
   "/bot": "Vector Agents",
   "/data-quality": "Data Quality Assessment",
-  "/data-modelling": "Data Modelling",
+  "/data-modelling": "Data Modelling & Prescriptive AI",
   "/reports": "Reports",
   "/admin": "Administration",
 };
