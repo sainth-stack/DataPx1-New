@@ -42,12 +42,15 @@ export function VectorAIAssistant() {
   const [rawQuality, setRawQuality] = useState<{ qualityScore: number; missingCells: number; outliers: number } | null>(null);
   const [syntheticQuality, setSyntheticQuality] = useState<{ qualityScore: number } | null>(null);
 
+  // Reset quality state when dataset changes
   useEffect(() => {
-    if (datasetLoading || !activeDatasetId) {
-      setRawQuality(null);
-      setSyntheticQuality(null);
-      return;
-    }
+    setRawQuality(null);
+    setSyntheticQuality(null);
+  }, [activeDatasetId]);
+
+  // Only fetch quality data when the panel is actually opened (avoids firing on every page)
+  useEffect(() => {
+    if (!open || datasetLoading || !activeDatasetId) return;
 
     void (async () => {
       try {
@@ -69,7 +72,7 @@ export function VectorAIAssistant() {
         setSyntheticQuality(null);
       }
     })();
-  }, [activeDatasetId, datasetLoading]);
+  }, [open, activeDatasetId, datasetLoading]);
 
   const dataQualityPct = rawQuality?.qualityScore ?? rawQualityKpis.qualityScore;
   const syntheticPct = syntheticQuality?.qualityScore ?? syntheticQualityKpis.qualityScore;
